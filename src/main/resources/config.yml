@@ -1,0 +1,266 @@
+# Railway default configuration
+
+# 调试与日志设置
+debug:
+  # 启用详细的列车物理调试日志（包括脱轨恢复、轨道类型检测、速度调整）
+  # Enable detailed train physics debug logging (derailment recovery, rail type detection, speed adjustment)
+  train_physics: false
+  # 启用编组间距调试日志（输出每节车厢的间距和速度变化）
+  # Enable consist spacing debug logging (output spacing and velocity changes for each car)
+  consist_spacing: false
+
+# 语言设置
+service:
+  # Run mode of services; local = virtual timetable with on-demand materialization; global = always-on trains
+  # 运行模式: local（虚拟时刻表 + 就近实体化）/ global（全线常驻实体）
+  mode: local
+  # Default headway between departures in seconds
+  # 默认发车间隔（秒）
+  default_headway_seconds: 120
+  # Default dwell time at each stop in ticks
+  # 默认停站时间（tick，20 tick=1秒）
+  default_dwell_ticks: 100
+  # Default number of cars per consist
+  # 默认编组长度（车厢数）
+  default_train_cars: 3
+
+settings:
+  # Default language for plugin messages
+  # 默认语言（示例 zh_CN = 简体中文）
+  default_language: zh_CN
+  cart_speed: 0.4
+  train_spacing: 1.6
+  control:
+    # Default control mode for trains: kinematic | leashed | reactive
+    # 全局默认控制模式：kinematic（运动学/强控），leashed（拴绳视觉+轻控制），reactive（原版风格间距控制）
+    default_mode: kinematic
+    leash:
+      # Leash dummy mob type (must be leashable), e.g. ALLAY, FOX, WOLF
+      # 拴绳端点生物类型（需可被拴绳）
+      mob_type: ALLAY
+      # Update interval in ticks for leash dummy following
+      # 端点跟随刷新间隔（tick）
+      update_interval_ticks: 1
+      # Vertical offset for leash dummy relative to cart center
+      # 端点相对车厢中心的垂直偏移
+      offset_y: 0.2
+  
+  # Safe speed mode: automatically limit speed on curves and slopes based on vanilla physics
+  # 安全速度模式：根据原版物理机制自动在弯道和坡道限速
+  # - true: enable automatic speed limiting (recommended, prevents derailment)
+  # - false: disable limits, rely on track design (for advanced users)
+  safe_speed_mode: true
+
+  # Selection tool configuration
+  # 站点区域选择使用的工具（默认金锄头，可设为任意物品 ID）
+  selection:
+    tool: GOLDEN_HOE
+  
+  # Global mode chunk loading strategy
+  # 全局模式下的区块保持加载策略
+  chunk_loading:
+    # Enable moving window chunk loading in global mode
+    # 是否启用移动窗口区块加载
+    enabled: true
+    # Radius (in chunks) around each carriage to keep loaded (2 => 5x5 area)
+    # 每节车厢周围保持加载的区块半径（单位: 区块，2 表示加载 5x5 区块）
+    radius: 2
+    # Forward preloading band length (in chunks) ahead of the lead car
+    # 车头前方预加载的区块条带长度（单位: 区块）
+    forward_preload_radius: 1
+    # 仅在列车行进时保持加载（停止时自动释放）
+    only_when_moving: false
+    # 刷新区块窗口的周期（单位: tick）
+    update_interval_ticks: 10
+
+  # 区间运行时间的贝叶斯估计配置
+  travel_time:
+    enabled: true
+    # 无历史数据时的默认区间运行时间（秒）
+    default_section_seconds: 20.0
+    # 先验强度（等价于“虚拟样本数量”）
+    prior_strength: 4.0
+    # 使用当前观测方差剔除超过多少倍标准差的异常样本
+    outlier_sigma: 3.0
+    # 每日衰减因子（0-1，越小越快遗忘旧数据）
+    decay_per_day: 0.95
+    # 是否使用“无人完整乘坐”的样本（置信度较低）
+    use_unboarded_samples: false
+    # 启用无人样本时的权重（相对完整乘坐样本）
+    unboarded_weight: 0.2
+
+  # Local mode behaviour configuration
+  # Local 模式行为配置
+  local:
+    # Players within this radius (blocks) around a stop will trigger spawn
+    # 触发实体化的玩家距离站点半径（单位: 格）
+    activation_radius: 96
+    # Lead time so that the train tries to arrive after this many ticks when demand detected
+    # 目标到站提前量：列车会尝试在此 tick 数后抵达玩家所在站
+    spawn_lead_ticks: 120
+    # Suppress spawning if a passenger-carrying train will arrive within this many seconds
+    # 若有载客列车将在这么多秒内到站，则不再生成新列车
+    suppress_threshold_seconds: 10.0
+    # Virtualization controls (only instantiate trains near demand)
+    # 虚拟化控制：仅在有需求的站前实体化列车
+    virtualization:
+      enabled: true
+      # Idle ticks before despawning a demand-free train (20 ticks = 1 秒)
+      # 无需求状态下等待多少 tick 后回收列车
+      idle_ticks: 200
+      # Lookahead stops to scan for nearby players before despawning
+      # 判断是否有需求时向前查看的站点数量
+      lookahead_stops: 2
+  
+physics:
+  # Drive lead car kinematically (ignore vanilla friction entirely)
+  # 车头采用运动学驱动（完全忽略原版摩擦）
+  lead_kinematic: true
+  # Lookahead blocks to pre-check upcoming rail geometry for speed capping
+  # 前瞻检查的轨道方块数，用于提前限速（弯道/坡道）
+  lookahead_blocks: 4
+  # Seconds of leader trail to buffer for following (affects max train length)
+  # 轨迹缓冲时长（秒），影响可支持的最大编组长度
+  trail_seconds: 10
+  # Per-tick smoothing toward target position (0=teleport, 0.3=平滑)
+  # 每 tick 向目标位置平滑插值（0=直接到位，0.3=较平滑）
+  smoothing_lerp: 0.15
+  # Snap followers to rail center when applying path target
+  # 应用路径目标时是否吸附到轨道中心
+  snap_to_rail: true
+  # Force exact positioning when a cart has passengers (eliminates drag-induced lag)
+  # 当车厢有乘客时强制严格对齐目标位置，避免因摩擦导致掉队
+  strict_when_has_passenger: true
+  # Position-only mode: followers teleport to target points and keep zero velocity
+  # 纯位置模式：后车仅传送到目标，不设置速度（电影/展示更稳定）
+  position_only_mode: false
+
+titles:
+  # Station area HUD (initial entry + continuous refresh)
+  # 站台区域提示（包含首次进入与连续刷新）
+  stop_continuous:
+    enabled: true
+    # Refresh interval in ticks (also ActionBar interval when always=true)
+    # 刷新周期（tick），always=true 时作为 ActionBar 间隔
+    interval: 40
+    # Always display title inside stop area (true = continuous, false = one-time)
+    # 是否在站台内持续显示标题（true 时无闪烁，false 为进入一次性提示）
+    always: true
+    # 普通站标题模板
+    title: "&b{stop_name}"
+    subtitle: "开往 &d{terminus_name} &f| 下一站: &e{next_stop_name} | 换乘: &a{stop_transfers} | 下一换乘: &6{next_stop_transfers}"
+    actionbar: "停站期间可进入任意车厢乘坐 {line_color_code}{line} &f列车"
+    # 始发站特殊模板
+    start_stop:
+      title: "&b{stop_name}"
+      subtitle: "开往 &d{terminus_name} &f| 始发站 | 换乘: &a{stop_transfers}"
+      actionbar: "停站期间可进入任意车厢乘坐 {line_color_code}{line} &f列车"
+    # 终点站特殊模板
+    end_stop:
+      title: "&b{stop_name}"
+      subtitle: "本列车终到 &d{stop_name} &f| &e终点站 | 换乘: &a{stop_transfers}"
+      actionbar: "本列车已到达终点站，请所有乘客下车"
+    # always=false 时生效的 Title 淡入淡出参数
+    fade_in: 10
+    stay: 40
+    fade_out: 10
+  
+  # 车上乘客到站提示
+  arrive_stop:
+    enabled: true
+    title: "&b{stop_name} &f已到站"
+    subtitle: "开往 &d{terminus_name} &f| 下一站: &e{next_stop_name} | 换乘: &a{stop_transfers} | 下一换乘: &6{next_stop_transfers}"
+    fade_in: 10
+    stay: 40
+    fade_out: 10
+    
+  # 终点站到站提示
+  terminal_stop:
+    enabled: true
+    title: "&b{stop_name}"
+    subtitle: "&c终点站 - 请乘客下车 | 换乘: &a{stop_transfers}"
+    fade_in: 10
+    stay: 60
+    fade_out: 10
+    
+  # 列车行进过程中周期更新的行程信息
+  departure:
+    enabled: true
+    # 刷新间隔（tick）
+    interval: 40
+    title: "下一站 &e{next_stop_name}"
+    subtitle: "开往 &d{terminus_name} &f| 下一换乘: &6{next_stop_transfers}"
+    actionbar: "列车正在运行，请抓紧扶手"
+    fade_in: 5
+    stay: 40
+    fade_out: 5
+
+  # 列车等待发车期间的提示（倒计时等）
+  waiting:
+    enabled: true
+    # 刷新间隔（tick）
+    interval: 20
+    title: "列车即将发车"
+    subtitle: "当前站: &a{stop_name} | 下一站: &e{next_stop_name}"
+    actionbar: "列车将在 &c{countdown} &f秒后发车"
+
+# 音效配置
+sounds:
+  # 发车时播放的音效
+  departure:
+    enabled: true
+    # 起始延迟（tick，20 tick = 1 秒）
+    initial_delay: 0
+    # 音符序列，格式: "TYPE,PITCH,VOLUME,INSTRUMENT,DELAY"
+    # TYPE: NOTE(音符) / CUSTOM(自定义音效)
+    # PITCH: 0-24 （音高）
+    # VOLUME: 0.0-1.0 （音量）
+    # INSTRUMENT: PIANO/BASS/CHIME... 等原版音色
+    notes:
+      - "NOTE,14,1.0,BELL,0"
+      - "NOTE,14,1.0,BELL,8"
+      - "NOTE,10,0.8,PIANO,16"
+  
+  # 进站提示音
+  arrival:
+    enabled: true
+    initial_delay: 40
+    notes:
+      - "NOTE,16,1.0,CHIME,0"
+      - "NOTE,18,1.0,CHIME,6"
+      - "NOTE,12,0.8,PIANO,14"
+      
+  # 站台端进站提示音（面向站台旅客）
+  station_arrival:
+    enabled: true
+    initial_delay: 0
+    notes:
+      - "NOTE,6,0.8,BASS_DRUM,0"
+      - "NOTE,9,0.9,XYLOPHONE,6"
+      - "NOTE,12,0.7,CHIME,12"
+      
+  # 等待发车时循环播放的提示音
+  waiting:
+    enabled: true
+    initial_delay: 0
+    # 循环间隔（tick）
+    interval: 20
+    notes:
+      - "NOTE,13,0.7,BELL,0"
+
+# 乘客侧记分板配置
+scoreboard:
+  # 是否启用记分板（Folia 下不兼容）
+  enabled: true
+  # 站点显示样式
+  styles:
+    # 当前站样式
+    current_stop: "&f"
+    # 下一站样式
+    next_stop: "&a"
+    # 其它站样式
+    other_stops: "&7"
+  # 线路标识符样式
+  line_symbol: "●"
+
+
