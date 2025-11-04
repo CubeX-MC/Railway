@@ -1,13 +1,12 @@
 ## Railway 插件
 
-Railway 是基于 [Metro](https://github.com/CubexMC/Metro) 的 Minecraft 列车运营插件。在原有站台管理基础上引入**固定发车间隔（Headway）**、**多车编组（Train Consist）**和**自动化调度**系统，让玩家体验真实的进站、停靠、发车流程。
+Railway 是基于 [Metro](https://github.com/CubeX-MC/Metro) 的 Minecraft 列车运营插件。在原有站台管理基础上引入**固定发车间隔（Headway）**、**多车编组（Train Consist）**和**自动化调度**系统，让玩家体验真实的进站、停靠、发车流程。
 
 ### 核心特性
 - **基于 Metro**：继承站台管理、UI 提示、音效系统和多语言支持
-- **Folia 兼容**：完全支持 Paper 和 Folia 服务器
-- **自动化调度**：按发车间隔生成列车，支持环线/双向运行
+- **Folia 兼容**：尚未测试
+- **自动化调度**：按发车间隔生成列车，支持环线/单向运行
 - **三种控制模式**：运动学（Kinematic）、反应式（Reactive）、牵引绳（Leashed）
-- **自研矿车物理**：车头运动学驱动，后车轨迹跟随，稳定通过弯道坡道
 - **虚拟化调度**：Local 模式按需生成列车，节省服务器性能
 - **站台 HUD**：实时显示下班车倒计时，支持 Title/ActionBar/Hologram
 - **权限管理**：线路和站点支持所有者与管理员系统
@@ -195,35 +194,6 @@ red:
 
 线路和站点支持所有者 (owner) 与管理员 (admin) 系统，可通过 `set-owner`、`add-admin`、`remove-admin` 命令管理权限。OP 与拥有 `railway.admin` 权限的玩家可绕过所有权检查。
 
-**使用示例**
-```bash
-# 1. 创建站点
-/rail stop create s1 "中央车站"
-/rail stop create s2 "东站"
-/rail stop set-point s1  # 站在铁轨上执行，可省略 s1 自动匹配当前站点
-/rail stop set-corners s1  # 使用金锄头右键选择区域两个角
-
-# 2. 创建线路
-/rail line create red "红线"
-/rail line set-color red &c
-/rail line add-stop red s1
-/rail line add-stop red s2
-
-# 3. 配置服务
-/rail line set-headway red 120      # 120秒发车间隔
-/rail line set-dwell red 100        # 100 ticks停站时间
-/rail line set-train-cars red 3     # 3节车厢
-/rail line set-maxspeed red 0.6     # 最大速度 0.6
-/rail line control red kinematic    # 设置控制模式为运动学
-/rail line service red enable       # 启动服务
-
-# 4. 查看状态与详情
-/rail line status red               # 查看红线状态
-/rail line stops red                # 查看红线站点列表
-/rail line list                     # 列出所有线路
-/rail stop list                     # 列出所有站点
-```
-
 ### 运行模式
 - **local**（默认）："虚拟时刻表 + 就近实体化"，仅在玩家附近生成列车实体，兼顾沉浸与性能。支持虚拟化回收（无需求时自动清理列车）。
 - **global**：全线常驻实体，按 headway 持续运行。支持移动窗口区块加载，保证列车在全程正常运行。
@@ -235,14 +205,9 @@ red:
 
 所有控制模式均支持线路限速（`max_speed`）、弯道/坡道安全限速、载客严格同步等特性。
 
-### 迁移与改动说明（本次）
-- 移除 `settings.consist.*` 全部项目，统一由 `physics.*` 控制。
-- 新增 `physics/TrainPhysicsEngine` 接口、`physics/KinematicRailPhysics` 默认实现。
-- `TrainInstance` 现在优先调用物理引擎驱动列车，每 tick 接管矿车位置/速度；到站/清理时同步回调。
-- 轨道安全限速（弯道/坡道）仍保留，作为运动学驱动的上限速度。
-- 载客车厢每 tick 严格对齐（避免摩擦导致掉队），传送/对齐均吸附轨心。
-
 ### Folia 兼容说明
 尚未测试
 
+### 物理参考
+TrainCarts, Metro
 
