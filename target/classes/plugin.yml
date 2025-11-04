@@ -20,5 +20,11 @@ permissions:
   railway.use:
     description: Allows using Railway features as a player
     default: true
+  railway.line.create:
+    description: Allows players to create new railway lines
+    default: false
+  railway.stop.create:
+    description: Allows players to create new stops
+    default: false
 
 
