@@ -111,6 +111,28 @@ settings:
       # Lookahead stops to scan for nearby players before despawning
       # 判断是否有需求时向前查看的站点数量
       lookahead_stops: 2
+    
+    # Virtual railway network configuration
+    # 虚拟铁路网络配置：列车在虚拟层持续运行，玩家靠近时实例化
+    virtual_network:
+      # Spawn mode determines where trains appear when materialized
+      # 生成模式决定列车在何处实例化
+      # Options/选项:
+      #   - mid_segment: Spawn between stops on the nearest rail (may fail if no rail found)
+      #                  在两站之间的最近铁轨上生成（可能因找不到铁轨而失败）
+      #   - previous_stop: Spawn at the previous stop (most reliable)
+      #                    在前一站生成（最可靠但玩家等待时间最长）
+      #   - platform_boundary: Spawn just outside the target platform (train appears to arrive)
+      #                        在目标站台边界外生成（列车看起来正在进站）
+      #   - current_stop: Spawn directly at the target stop (instant but less realistic)
+      #                   直接在玩家所在站生成（即时但不真实）
+      spawn_mode: current_stop
+      # Maximum ETA (seconds) for a virtual train to be materialized
+      # 虚拟列车被实例化的最大 ETA（秒）
+      max_materialize_eta_seconds: 60
+      # Search radius for finding rails when spawning mid-segment or at boundaries
+      # 搜索铁轨的半径（格）
+      rail_search_radius: 5
   
 physics:
   # Drive lead car kinematically (ignore vanilla friction entirely)

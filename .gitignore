@@ -1,0 +1,10 @@
+# User requested exclusion
+TrainCarts/
+
+# Standard Maven
+target/
+
+# IDEs
+.idea/
+*.iml
+.vscode/

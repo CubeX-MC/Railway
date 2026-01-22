@@ -27,6 +27,7 @@ import org.cubexmc.railway.manager.StopManager;
 import org.cubexmc.railway.service.LineService;
 import org.cubexmc.railway.estimation.TravelTimeEstimator;
 import org.cubexmc.railway.util.LocationUtil;
+import org.cubexmc.railway.util.MinecartPhysicsUtil;
 import org.cubexmc.railway.physics.TrainPhysicsEngine;
 import org.cubexmc.railway.physics.KinematicRailPhysics;
 import org.cubexmc.railway.physics.ReactiveRailPhysics;
@@ -38,7 +39,9 @@ import org.bukkit.entity.ArmorStand;
 
 public class TrainInstance {
 
-    private enum TrainState { WAITING, MOVING, TERMINATING, FINISHED }
+    private enum TrainState {
+        WAITING, MOVING, TERMINATING, FINISHED
+    }
 
     private final UUID id = UUID.randomUUID();
     private final LineService service;
@@ -53,7 +56,7 @@ public class TrainInstance {
     private long stateSinceTick;
     private String sectionKey;
     private Vector travelDirection;
-    
+
     private boolean cleaned;
     private final int dwellTicks;
     private boolean readyToDepart;
@@ -61,7 +64,7 @@ public class TrainInstance {
     private final Set<UUID> segmentDepartPassengers = new HashSet<>();
     private long idleVirtualTicks = 0L;
     private int stalledTicks = 0;
-    
+
     // Passenger tracking
     private final Map<UUID, Player> passengers = new HashMap<>();
     private PassengerExperience passengerExperience;
@@ -70,7 +73,10 @@ public class TrainInstance {
     // Chunk loading state
     private final Set<Long> forcedChunks = new HashSet<>();
     private long lastChunkUpdateTick = 0L;
-    
+
+    // Virtual train system
+    private UUID virtualTrainId = null;
+
     public TrainInstance(LineService service, Line line, TrainConsist consist, List<String> orderedStopIds,
             long spawnTick, int dwellTicks) {
         this.service = service;
@@ -105,7 +111,7 @@ public class TrainInstance {
     public LineService getService() {
         return service;
     }
-    
+
     public Line getLine() {
         return line;
     }
@@ -139,6 +145,10 @@ public class TrainInstance {
                 }
                 break;
             case MOVING:
+                checkArrival(currentTick);
+                if (state != TrainState.MOVING)
+                    break; // State might have changed to WAITING
+
                 double leadSpeed = getLeadSpeed();
                 int subSteps = computeSubSteps(leadSpeed);
                 double stepFraction = subSteps <= 1 ? 1.0 : 1.0 / subSteps;
@@ -152,7 +162,8 @@ public class TrainInstance {
                         Minecart lead = consist.getLeadCar();
                         if (lead != null && !lead.isDead()) {
                             Vector dir = (travelDirection != null && travelDirection.lengthSquared() > 0)
-                                    ? travelDirection.clone().normalize() : new Vector(1, 0, 0);
+                                    ? travelDirection.clone().normalize()
+                                    : new Vector(1, 0, 0);
                             Vector v = dir.multiply(Math.max(0.1, service.getCartSpeed() * 0.5));
                             if (SchedulerUtil.isFolia()) {
                                 SchedulerUtil.entityRun(service.getPlugin(), lead, (Runnable) () -> {
@@ -190,37 +201,37 @@ public class TrainInstance {
             updateChunkLoading(currentTick);
         }
     }
-    
+
     private void updateWaitingUI(long currentTick) {
         if (!hasPassengers()) {
             return;
         }
-        
+
         long elapsed = currentTick - stateSinceTick;
         long remaining = dwellTicks - elapsed;
         int secondsRemaining = Math.max(0, (int) (remaining / 20));
-        
+
         Stop currentStop = service.getStopManager().getStop(stopIds.get(currentIndex));
         Stop nextStop = null;
         if (currentIndex < stopIds.size() - 1) {
             nextStop = service.getStopManager().getStop(stopIds.get(currentIndex + 1));
         }
         Stop terminalStop = service.getStopManager().getStop(stopIds.get(stopIds.size() - 1));
-        
+
         passengerExperience.onWaiting(currentStop, nextStop, terminalStop, secondsRemaining);
     }
-    
+
     private void updateJourneyUI() {
         if (!hasPassengers()) {
             return;
         }
-        
+
         Stop nextStop = null;
         if (targetIndex >= 0 && targetIndex < stopIds.size()) {
             nextStop = service.getStopManager().getStop(stopIds.get(targetIndex));
         }
         Stop terminalStop = service.getStopManager().getStop(stopIds.get(stopIds.size() - 1));
-        
+
         passengerExperience.updateJourneyDisplay(nextStop, terminalStop);
     }
 
@@ -265,7 +276,7 @@ public class TrainInstance {
             travelDirection = travelDirection.normalize();
         }
 
-        applyInitialBoost(fromStop);
+        applyInitialBoost(travelDirection);
         physicsEngine.onDeparture(this, fromStop);
         state = TrainState.MOVING;
         stateSinceTick = currentTick;
@@ -273,10 +284,92 @@ public class TrainInstance {
         segmentStartTick = currentTick;
         segmentDepartPassengers.clear();
         segmentDepartPassengers.addAll(passengers.keySet());
-        
+
         // Trigger passenger departure experience
         Stop terminalStop = service.getStopManager().getStop(stopIds.get(stopIds.size() - 1));
         passengerExperience.onDeparture(fromStop, toStop, terminalStop);
+    }
+
+    private void checkArrival(long currentTick) {
+        if (targetIndex < 0 || targetIndex >= stopIds.size()) {
+            // Invalid target, maybe finish?
+            return;
+        }
+
+        Stop targetStop = service.getStopManager().getStop(stopIds.get(targetIndex));
+        if (targetStop == null || targetStop.getStopPointLocation() == null) {
+            return;
+        }
+
+        Minecart lead = consist.getLeadCar();
+        if (lead == null || lead.isDead()) {
+            return;
+        }
+
+        double distSq = lead.getLocation().distanceSquared(targetStop.getStopPointLocation());
+        double threshold = 2.0; // 2 blocks radius
+
+        // If speed is high, we might need larger threshold, but physics aims for stop.
+        // With kinematic physics, we should land pretty close.
+
+        if (distSq < threshold * threshold) {
+            // Arrived!
+            arriveAtStop(targetStop, currentTick);
+        }
+    }
+
+    private void arriveAtStop(Stop stop, long currentTick) {
+        state = TrainState.WAITING;
+        stateSinceTick = currentTick;
+        currentIndex = targetIndex;
+        targetIndex = -1;
+        readyToDepart = false;
+
+        consist.zeroVelocity();
+        travelDirection = null;
+
+        // Snap to exact stop location to fix alignment
+        if (stop.getStopPointLocation() != null) {
+            Minecart lead = consist.getLeadCar();
+            if (lead != null && !lead.isDead()) {
+                // Determine orientation based on rail or last movement
+                float yaw = lead.getLocation().getYaw();
+                if (stop.getLaunchYaw() != 0) {
+                    // Could snap to launch yaw? Or keep current?
+                    // Keep current is safer to avoid flipping around.
+                }
+
+                Location snapLoc = stop.getStopPointLocation().clone();
+                snapLoc.setYaw(yaw);
+                snapLoc.setPitch(lead.getLocation().getPitch());
+                lead.teleport(snapLoc);
+                MinecartPhysicsUtil.forceVelocity(lead, new Vector(0, 0, 0), service.getPlugin());
+            }
+        }
+
+        physicsEngine.onArrival(this, stop, currentTick);
+
+        // Trigger passenger arrival experience
+        Stop nextStop = null;
+        boolean isTerminal = currentIndex >= stopIds.size() - 1;
+
+        if (isTerminal && service.isLoopLine()) {
+            if (!stopIds.isEmpty() && stopIds.get(0).equals(stop.getId())) {
+                currentIndex = 0;
+            }
+            isTerminal = false;
+        } else if (isTerminal) {
+            state = TrainState.TERMINATING;
+        }
+
+        if (!isTerminal && currentIndex < stopIds.size() - 1) {
+            nextStop = service.getStopManager().getStop(stopIds.get(currentIndex + 1));
+        }
+        Stop terminalStop = service.getStopManager().getStop(stopIds.get(stopIds.size() - 1));
+        passengerExperience.onArrival(stop, nextStop, terminalStop, isTerminal);
+
+        // Record travel time sample for estimator
+        tryRecordTravelTimeSample(currentTick);
     }
 
     private double getLeadSpeed() {
@@ -289,7 +382,8 @@ public class TrainInstance {
 
     private int computeSubSteps(double leadSpeed) {
         int maxSubSteps = 12;
-        if (leadSpeed <= 0.35) return 1;
+        if (leadSpeed <= 0.35)
+            return 1;
         int steps = (int) Math.ceil(leadSpeed / 0.35);
         return Math.max(1, Math.min(steps, maxSubSteps));
     }
@@ -350,19 +444,17 @@ public class TrainInstance {
         }
     }
 
-    
-
     // legacy trail helpers removed; physics engine owns path following
 
-    private void applyInitialBoost(Stop fromStop) {
-        Vector launchDir = LocationUtil.vectorFromYaw(fromStop != null ? fromStop.getLaunchYaw() : 0f);
-        if (launchDir == null || launchDir.lengthSquared() == 0) {
+    private void applyInitialBoost(Vector direction) {
+        Vector launchDir = direction != null ? direction.clone() : new Vector(0, 0, 1);
+        if (launchDir.lengthSquared() == 0) {
             launchDir = new Vector(0, 0, 1);
         }
         launchDir.normalize();
 
         double initialSpeed = service.getCartSpeed();
-        
+
         List<Minecart> cars = consist.getCars();
         for (Minecart cart : cars) {
             if (cart == null || cart.isDead()) {
@@ -378,7 +470,6 @@ public class TrainInstance {
             }
         }
     }
-
 
     public void handleArrival(Stop stop, long currentTick) {
         if (state != TrainState.MOVING) {
@@ -404,7 +495,8 @@ public class TrainInstance {
 
         boolean isTerminal = currentIndex >= stopIds.size() - 1;
         if (isTerminal && service.isLoopLine()) {
-            // Treat loop lines as continuous service: wrap to first stop and continue waiting
+            // Treat loop lines as continuous service: wrap to first stop and continue
+            // waiting
             if (!stopIds.isEmpty() && stopIds.get(0).equals(stop.getId())) {
                 currentIndex = 0;
             }
@@ -413,7 +505,7 @@ public class TrainInstance {
             state = TrainState.TERMINATING;
             stateSinceTick = currentTick;
         }
-        
+
         physicsEngine.onArrival(this, stop, currentTick);
         // Trigger passenger arrival experience
         Stop nextStop = null;
@@ -508,14 +600,17 @@ public class TrainInstance {
     }
 
     public double estimateEtaSecondsToStop(String stopId, long currentTick, TravelTimeEstimator estimator) {
-        if (stopId == null || estimator == null) return Double.POSITIVE_INFINITY;
+        if (stopId == null || estimator == null)
+            return Double.POSITIVE_INFINITY;
         List<String> stops = this.stopIds;
         int pos = stops.indexOf(stopId);
-        if (pos < 0) return Double.POSITIVE_INFINITY;
+        if (pos < 0)
+            return Double.POSITIVE_INFINITY;
 
         boolean loop = service.isLoopLine();
         int n = stops.size();
-        if (n < 2) return Double.POSITIVE_INFINITY;
+        if (n < 2)
+            return Double.POSITIVE_INFINITY;
 
         if (state == TrainState.WAITING) {
             if (currentIndex == pos) {
@@ -527,18 +622,22 @@ public class TrainInstance {
             while (true) {
                 int from = i;
                 int to = (i + 1) % n;
-                if (!loop && to <= from) return Double.POSITIVE_INFINITY; // cannot wrap on non-loop
+                if (!loop && to <= from)
+                    return Double.POSITIVE_INFINITY; // cannot wrap on non-loop
                 sum += estimator.estimateSeconds(service.getLineId(), stops.get(from), stops.get(to));
-                if (to == pos) break;
+                if (to == pos)
+                    break;
                 i = to;
             }
             return sum;
         }
 
         if (state == TrainState.MOVING) {
-            if (targetIndex < 0) return Double.POSITIVE_INFINITY;
+            if (targetIndex < 0)
+                return Double.POSITIVE_INFINITY;
             double elapsed = getSegmentElapsedSeconds(currentTick);
-            double segTotal = estimator.estimateSeconds(service.getLineId(), stops.get(currentIndex), stops.get(targetIndex));
+            double segTotal = estimator.estimateSeconds(service.getLineId(), stops.get(currentIndex),
+                    stops.get(targetIndex));
             double remaining = Math.max(0.0, segTotal - elapsed);
             if (pos == targetIndex) {
                 return remaining;
@@ -548,9 +647,11 @@ public class TrainInstance {
             while (true) {
                 int from = i;
                 int to = (i + 1) % n;
-                if (!loop && to <= from) return Double.POSITIVE_INFINITY;
+                if (!loop && to <= from)
+                    return Double.POSITIVE_INFINITY;
                 sum += estimator.estimateSeconds(service.getLineId(), stops.get(from), stops.get(to));
-                if (to == pos) break;
+                if (to == pos)
+                    break;
                 i = to;
             }
             return sum;
@@ -567,7 +668,7 @@ public class TrainInstance {
     public Vector getTravelDirection() {
         return travelDirection;
     }
-    
+
     private TrainPhysicsEngine selectEngine() {
         // Determine effective mode: line override or global default
         TrainControlMode mode;
@@ -587,21 +688,21 @@ public class TrainInstance {
                 return new KinematicRailPhysics();
         }
     }
-    
+
     // Passenger management methods
-    
+
     public void addPassenger(Player player, Minecart cart) {
         if (player != null && cart != null && consist.getCars().contains(cart)) {
             passengers.put(player.getUniqueId(), player);
         }
     }
-    
+
     public void removePassenger(Player player) {
         if (player != null) {
             passengers.remove(player.getUniqueId());
         }
     }
-    
+
     public List<Player> getPassengers() {
         List<Player> result = new ArrayList<>();
         for (Player player : passengers.values()) {
@@ -611,7 +712,7 @@ public class TrainInstance {
         }
         return result;
     }
-    
+
     public boolean hasPassengers() {
         for (Player player : passengers.values()) {
             if (player != null && player.isOnline()) {
@@ -620,21 +721,21 @@ public class TrainInstance {
         }
         return false;
     }
-    
+
     public boolean isPassenger(Player player) {
         return player != null && passengers.containsKey(player.getUniqueId());
     }
-    
+
     public Minecart getPassengerCart(Player player) {
         if (player == null || player.getVehicle() == null) {
             return null;
         }
-        
+
         Entity vehicle = player.getVehicle();
         if (vehicle instanceof Minecart && consist.getCars().contains((Minecart) vehicle)) {
             return (Minecart) vehicle;
         }
-        
+
         return null;
     }
 
@@ -667,8 +768,7 @@ public class TrainInstance {
 
         if (weight > 0.0) {
             service.getPlugin().getTravelTimeEstimator().record(
-                service.getLineId(), fromId, toId, durationSeconds, weight
-            );
+                    service.getLineId(), fromId, toId, durationSeconds, weight);
         }
 
         // Reset segment tracking
@@ -704,7 +804,8 @@ public class TrainInstance {
         Set<Long> desired = new HashSet<>();
         // Moving window around each car
         for (Minecart cart : cars) {
-            if (cart == null || cart.isDead()) continue;
+            if (cart == null || cart.isDead())
+                continue;
             Location loc = cart.getLocation();
             int cx = loc.getBlockX() >> 4;
             int cz = loc.getBlockZ() >> 4;
@@ -766,14 +867,16 @@ public class TrainInstance {
 
     private void forceChunk(int cx, int cz, boolean forced) {
         World world = getLeadWorld();
-        if (world == null) return;
+        if (world == null)
+            return;
         // Use region scheduler for Folia safety; pick a location in the target chunk
         Location center = new Location(world, (cx << 4) + 8, Math.max(world.getMinHeight() + 1, 64), (cz << 4) + 8);
         SchedulerUtil.regionRun(service.getPlugin(), center, () -> {
             try {
                 world.setChunkForceLoaded(cx, cz, forced);
             } catch (Throwable t) {
-                service.getPlugin().getLogger().warning("Failed to set chunk force-loaded at " + cx + "," + cz + ": " + t.getMessage());
+                service.getPlugin().getLogger()
+                        .warning("Failed to set chunk force-loaded at " + cx + "," + cz + ": " + t.getMessage());
             }
         }, 0L, -1L);
     }
@@ -784,7 +887,8 @@ public class TrainInstance {
     }
 
     private void releaseAllForcedChunks() {
-        if (forcedChunks.isEmpty()) return;
+        if (forcedChunks.isEmpty())
+            return;
         World world = getLeadWorld();
         if (world == null) {
             forcedChunks.clear();
@@ -798,11 +902,117 @@ public class TrainInstance {
         forcedChunks.clear();
     }
 
-    
     public void prepareForBoarding(Minecart cart) {
         // No-op, conductor removed
     }
+
+    // ===== Virtual Train System Methods =====
+
+    public void setVirtualTrainId(UUID id) {
+        this.virtualTrainId = id;
+    }
+
+    public UUID getVirtualTrainId() {
+        return virtualTrainId;
+    }
+
+    /**
+     * Force the train into WAITING state at a specific stop.
+     * Used when spawning directly at the target stop.
+     */
+    public void forceWaitingState(int stopIndex, long currentTick) {
+        this.currentIndex = Math.max(0, Math.min(stopIndex, stopIds.size() - 1));
+        this.targetIndex = -1;
+        this.state = TrainState.WAITING;
+        this.stateSinceTick = currentTick;
+        this.readyToDepart = false;
+        this.travelDirection = null;
+        this.segmentProgress = 0.0;
+        consist.zeroVelocity();
+    }
+
+    /**
+     * Force the train into MOVING state treating it as arriving at targetIndex.
+     */
+    public void forceArrivingState(int targetIndex, long currentTick) {
+        this.targetIndex = Math.max(0, Math.min(targetIndex, stopIds.size() - 1));
+        this.currentIndex = this.targetIndex; // For ETA calculation, assume we are in the segment ending at target
+        this.state = TrainState.MOVING;
+        this.stateSinceTick = currentTick;
+        this.readyToDepart = false;
+
+        // Calculate travel direction towards the stop
+        Stop stop = service.getStopManager().getStop(stopIds.get(this.targetIndex));
+        if (stop != null) {
+            // Use opposite of launch yaw to simulate arriving? Or just point to stop?
+            // Since we are physically outside, we should point to the stop center.
+            this.travelDirection = LocationUtil.vectorFromYaw(stop.getLaunchYaw()); // Assuming standard entry
+            if (consist.getLeadCar() != null) {
+                Vector toStop = stop.getStopPointLocation().toVector()
+                        .subtract(consist.getLeadCar().getLocation().toVector());
+                if (toStop.lengthSquared() > 0.01) {
+                    this.travelDirection = toStop.normalize();
+                }
+            }
+        }
+
+        // Initial velocity to start moving
+        applyInitialBoost(this.travelDirection);
+    }
+
+    /**
+     * Adjust the starting index for a train spawned mid-route.
+     * The train will depart from this index.
+     */
+    public void adjustStartIndex(int startIndex, long currentTick) {
+        this.currentIndex = Math.max(0, Math.min(startIndex, stopIds.size() - 1));
+        this.targetIndex = -1;
+        this.state = TrainState.WAITING;
+        this.stateSinceTick = currentTick;
+        // Set ready to depart immediately if spawned mid-route
+        this.readyToDepart = true;
+    }
+
+    // Field to track segment progress for virtualization
+    private double segmentProgress = 0.0;
+
+    /**
+     * Get current state for virtualization.
+     * Returns [currentIndex, targetIndex, segmentProgress, isWaiting]
+     */
+    public VirtualizationState getVirtualizationState(long currentTick) {
+        boolean isWaiting = (state == TrainState.WAITING || state == TrainState.TERMINATING);
+        double progress = 0.0;
+
+        if (state == TrainState.MOVING && targetIndex >= 0) {
+            // Calculate progress through current segment
+            double elapsed = getSegmentElapsedSeconds(currentTick);
+            double total = service.getPlugin().getTravelTimeEstimator()
+                    .estimateSeconds(service.getLineId(),
+                            stopIds.get(currentIndex),
+                            stopIds.get(targetIndex));
+            if (total > 0) {
+                progress = Math.min(1.0, elapsed / total);
+            }
+        }
+
+        return new VirtualizationState(currentIndex, targetIndex, progress, isWaiting);
+    }
+
+    /**
+     * State data for virtualizing a physical train back to virtual.
+     */
+    public static class VirtualizationState {
+        public final int currentIndex;
+        public final int targetIndex;
+        public final double progress;
+        public final boolean isWaiting;
+
+        public VirtualizationState(int currentIndex, int targetIndex, double progress, boolean isWaiting) {
+            this.currentIndex = currentIndex;
+            this.targetIndex = targetIndex;
+            this.progress = progress;
+            this.isWaiting = isWaiting;
+        }
+    }
 }
-
-
-

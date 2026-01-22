@@ -54,7 +54,7 @@ public final class Railway extends JavaPlugin {
         this.lineServiceManager = new LineServiceManager(this);
         this.travelTimeEstimator = new TravelTimeEstimator(this);
         this.travelTimeEstimator.load();
-        
+
         // Initialize scoreboard manager
         org.cubexmc.railway.train.ScoreboardManager.initialize(this);
         purgeResidualMinecarts();
@@ -111,11 +111,17 @@ public final class Railway extends JavaPlugin {
         return stopManager;
     }
 
-    public SelectionManager getSelectionManager() { return selectionManager; }
-    
-    public LanguageManager getLanguageManager() { return languageManager; }
+    public SelectionManager getSelectionManager() {
+        return selectionManager;
+    }
 
-    public TravelTimeEstimator getTravelTimeEstimator() { return travelTimeEstimator; }
+    public LanguageManager getLanguageManager() {
+        return languageManager;
+    }
+
+    public TravelTimeEstimator getTravelTimeEstimator() {
+        return travelTimeEstimator;
+    }
 
     public double getCartSpeed() {
         return getConfig().getDouble("settings.cart_speed", 0.4);
@@ -124,8 +130,6 @@ public final class Railway extends JavaPlugin {
     public double getTrainSpacing() {
         return getConfig().getDouble("settings.train_spacing", 1.6);
     }
-
-    
 
     // Title configuration getters
     public boolean isStopContinuousTitleEnabled() {
@@ -441,6 +445,21 @@ public final class Railway extends JavaPlugin {
         return Math.max(1, getConfig().getInt("settings.local.virtualization.lookahead_stops", 2));
     }
 
+    // Virtual railway network getters
+    public org.cubexmc.railway.service.virtual.SpawnMode getLocalSpawnMode() {
+        String mode = getConfig().getString("settings.local.virtual_network.spawn_mode", "current_stop");
+        return org.cubexmc.railway.service.virtual.SpawnMode.from(mode,
+                org.cubexmc.railway.service.virtual.SpawnMode.CURRENT_STOP);
+    }
+
+    public double getLocalMaxMaterializeEtaSeconds() {
+        return Math.max(5.0, getConfig().getDouble("settings.local.virtual_network.max_materialize_eta_seconds", 60.0));
+    }
+
+    public int getLocalRailSearchRadius() {
+        return Math.max(1, getConfig().getInt("settings.local.virtual_network.rail_search_radius", 5));
+    }
+
     // Debug configuration getters
     public boolean isDebugTrainPhysics() {
         return getConfig().getBoolean("debug.train_physics", false);
@@ -462,8 +481,10 @@ public final class Railway extends JavaPlugin {
 
     public double getPhysicsSmoothingLerp() {
         double v = getConfig().getDouble("physics.smoothing_lerp", 0.15);
-        if (v < 0.0) return 0.0;
-        if (v > 1.0) return 1.0;
+        if (v < 0.0)
+            return 0.0;
+        if (v > 1.0)
+            return 1.0;
         return v;
     }
 
@@ -569,5 +590,3 @@ public final class Railway extends JavaPlugin {
         }
     }
 }
-
-

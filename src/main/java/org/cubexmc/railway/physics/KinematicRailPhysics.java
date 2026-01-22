@@ -16,7 +16,8 @@ import org.cubexmc.railway.util.MinecartNmsUtil;
 import org.cubexmc.railway.util.MinecartPhysicsUtil;
 
 /**
- * Kinematic rail physics engine - COMPLETE override of vanilla minecart physics.
+ * Kinematic rail physics engine - COMPLETE override of vanilla minecart
+ * physics.
  * 
  * Philosophy:
  * - Vanilla physics is COMPLETELY ignored
@@ -31,7 +32,7 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
         final double x, y, z;
         final double vx, vy, vz;
         final double cumulativeDistance;
-        
+
         TrailPoint(double x, double y, double z, double vx, double vy, double vz, double cumDist) {
             this.x = x;
             this.y = y;
@@ -57,7 +58,7 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
 
     // Trail buffer for followers
     private final ArrayDeque<TrailPoint> trail = new ArrayDeque<>();
-    
+
     // Kinematic state (our source of truth)
     private double leadX, leadY, leadZ;
     private double leadVx, leadVy, leadVz;
@@ -104,13 +105,15 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
 
     @Override
     public void tick(TrainInstance train, double timeFraction, long currentTick) {
-        if (!initialized) init(train);
-        
+        if (!initialized)
+            init(train);
+
         Railway plugin = train.getService().getPlugin();
         Minecart lead = train.getConsist().getLeadCar();
-        if (lead == null || lead.isDead()) return;
+        if (lead == null || lead.isDead())
+            return;
 
-    double baseSpeed = train.getService().getCartSpeed();
+        double baseSpeed = train.getService().getCartSpeed();
         boolean safe = plugin.isSafeSpeedMode();
         Vector travelDir = train.getTravelDirection();
         List<Minecart> cars = train.getConsist().getCars();
@@ -136,52 +139,59 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
 
     /**
      * Update lead car with full kinematic control (TrainCarts-inspired approach)
-     * Strategy: 
+     * Strategy:
      * 1. Calculate ideal position based on our physics
      * 2. Force minecart to that position (defeating passenger effects)
      * 3. Use aggressive enforcement to maintain control
      */
-    private void updateLeadKinematic(Minecart lead, double baseSpeed, boolean safe, 
-                                     Vector travelDir, double timeFraction, Railway plugin, Vector spacingCorrection) {
+    private void updateLeadKinematic(Minecart lead, double baseSpeed, boolean safe,
+            Vector travelDir, double timeFraction, Railway plugin, Vector spacingCorrection) {
         // Calculate position based on our kinematic simulation
-    Location currentLoc = new Location(lead.getWorld(), leadX, leadY, leadZ);
-    currentLoc = RailPathUtil.project(currentLoc);
+        Location currentLoc = new Location(lead.getWorld(), leadX, leadY, leadZ);
+        currentLoc = RailPathUtil.project(currentLoc);
 
         double configuredMax = Math.max(0.05, baseSpeed);
         lead.setMaxSpeed(configuredMax);
-        
+
         // Use velocity from our simulation, not from the minecart
         Vector fallbackDir = new Vector(leadVx, leadVy, leadVz);
         if (fallbackDir.lengthSquared() < 1.0e-6) {
             fallbackDir = travelDir != null ? travelDir : new Vector(1, 0, 0);
         }
-        
+
         // Get rail direction with smooth transition
-    Vector railDir = RailPathUtil.computeDirection(currentLoc, fallbackDir);
+        Vector railDir = RailPathUtil.computeDirection(currentLoc, fallbackDir);
         if (railDir == null || railDir.lengthSquared() < 1.0e-6) {
             railDir = fallbackDir.clone().normalize();
         } else {
             railDir = railDir.normalize();
-            
-            // Blend with previous direction to avoid sudden snaps in curves
-            // This is similar to TrainCarts' gradual orientation updates
+
+            // Blend with previous direction to avoid sudden snaps
+            // FIX: Use aggressive smoothing for slopes (0.85) to fix "Right Tilt" snap,
+            // but keep it fast enough to avoid "Left Tilt" lag.
+            LocationUtil.RailType railType = LocationUtil.getRailType(currentLoc);
+            boolean isSlope = railType == LocationUtil.RailType.ASCENDING
+                    || railType == LocationUtil.RailType.DESCENDING;
+            double threshold = isSlope ? 0.99 : 0.707; // Always smooth slopes (cos(0) = 1)
+            double blendFactor = isSlope ? 0.85 : 0.4;
+
             Vector prevDir = lastLeadDirection.clone();
             if (prevDir.lengthSquared() > 1.0e-6) {
                 prevDir.normalize();
                 double dot = railDir.dot(prevDir);
-                // If directions are too different (>45 degrees), blend more gradually
-                if (dot < 0.707) { // cos(45°)
-                    double blendFactor = 0.4; // 40% new direction, 60% old
+
+                // For slopes, we want to smooth the 0->45 degree transition
+                if (dot < threshold) {
                     railDir = prevDir.multiply(1.0 - blendFactor).add(railDir.multiply(blendFactor)).normalize();
                 }
             }
         }
         Vector facingDir = railDir.clone();
-        
+
         // Calculate target speed with lookahead
         LocationUtil.RailType railType = LocationUtil.getRailType(currentLoc);
         double targetSpeed = LocationUtil.getSafeSpeedForRail(railType, baseSpeed, safe);
-        
+
         int lookahead = plugin.getPhysicsLookaheadBlocks();
         double minSpeedAhead = targetSpeed;
         if (safe && lookahead > 0) {
@@ -197,29 +207,29 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
                 }
             }
         }
-        
+
         targetSpeed = applyTerrainBoost(currentLoc, railType, targetSpeed, baseSpeed);
         if (railType == LocationUtil.RailType.CURVE && minSpeedAhead < targetSpeed) {
             targetSpeed = minSpeedAhead;
         }
         targetSpeed = Math.max(0.05, targetSpeed);
-        
-    Vector targetVelocity = railDir.clone().multiply(targetSpeed);
-    Vector correctedVelocity = onSpacingUpdate(targetVelocity, spacingCorrection, lead, baseSpeed);
-    correctedVelocity = alignVelocityToRail(currentLoc, correctedVelocity, railDir);
-    correctedVelocity = clampVelocity(correctedVelocity, 999.0, targetSpeed);
 
-    // Calculate movement step based on corrected velocity
-    Vector step = correctedVelocity.clone().multiply(timeFraction);
+        Vector targetVelocity = railDir.clone().multiply(targetSpeed);
+        Vector correctedVelocity = onSpacingUpdate(targetVelocity, spacingCorrection, lead, baseSpeed);
+        correctedVelocity = alignVelocityToRail(currentLoc, correctedVelocity, railDir);
+        correctedVelocity = clampVelocity(correctedVelocity, 999.0, targetSpeed);
 
-    // Update kinematic state
-    leadX += step.getX();
-    leadY += step.getY();
-    leadZ += step.getZ();
-    leadVx = correctedVelocity.getX();
-    leadVy = correctedVelocity.getY();
-    leadVz = correctedVelocity.getZ();
-        
+        // Calculate movement step based on corrected velocity
+        Vector step = correctedVelocity.clone().multiply(timeFraction);
+
+        // Update kinematic state
+        leadX += step.getX();
+        leadY += step.getY();
+        leadZ += step.getZ();
+        leadVx = correctedVelocity.getX();
+        leadVy = correctedVelocity.getY();
+        leadVz = correctedVelocity.getZ();
+
         // Validate and snap to rails
         Location newLoc = new Location(lead.getWorld(), leadX, leadY, leadZ);
         if (!LocationUtil.isRail(newLoc)) {
@@ -231,15 +241,15 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
                 newLoc = snapped;
             }
         }
-        
+
         newLoc = RailPathUtil.project(newLoc);
 
         // CRITICAL: Snap to position, overriding vanilla physics completely
         // This is the key to defeating passenger mass effects
         Vector leadVelocity = new Vector(leadVx, leadVy, leadVz);
-    snapToPosition(lead, newLoc, leadVelocity, facingDir, plugin, baseSpeed);
+        snapToPosition(lead, newLoc, leadVelocity, facingDir, plugin, baseSpeed);
         lastLeadDirection = facingDir.clone();
-        
+
         // Record trail for followers
         addTrailPoint(leadX, leadY, leadZ, leadVx, leadVy, leadVz);
     }
@@ -247,44 +257,45 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
     /**
      * Update lead car with vanilla physics (just clamp speed)
      */
-    private void updateLeadVanilla(Minecart lead, double baseSpeed, boolean safe, 
-                                   Vector travelDir, Railway plugin, Vector spacingCorrection) {
+    private void updateLeadVanilla(Minecart lead, double baseSpeed, boolean safe,
+            Vector travelDir, Railway plugin, Vector spacingCorrection) {
         Location loc = lead.getLocation();
         Vector vel = lead.getVelocity();
-        
+
         // Update our kinematic state from actual position
         leadX = loc.getX();
         leadY = loc.getY();
         leadZ = loc.getZ();
 
-    double configuredMax = Math.max(0.05, baseSpeed);
+        double configuredMax = Math.max(0.05, baseSpeed);
         lead.setMaxSpeed(configuredMax);
-        
+
         // Clamp speed if needed
         double currentSpeed = Math.sqrt(vel.getX() * vel.getX() + vel.getZ() * vel.getZ());
         LocationUtil.RailType railType = LocationUtil.getRailType(loc);
         double maxSpeed = LocationUtil.getSafeSpeedForRail(railType, baseSpeed, safe);
-        
+
         if (currentSpeed > maxSpeed) {
             double scale = maxSpeed / currentSpeed;
             vel.multiply(scale);
             MinecartPhysicsUtil.forceVelocity(lead, vel, plugin);
         }
-        
+
         Vector corrected = onSpacingUpdate(vel, spacingCorrection, lead, baseSpeed);
         corrected = alignVelocityToRail(loc, corrected, corrected);
-    corrected = clampVelocity(corrected, 999.0, maxSpeed);
+        corrected = clampVelocity(corrected, 999.0, maxSpeed);
         MinecartPhysicsUtil.forceVelocity(lead, corrected, plugin);
 
         leadVx = corrected.getX();
         leadVy = corrected.getY();
         leadVz = corrected.getZ();
 
-    Vector fallback = (travelDir != null && travelDir.lengthSquared() > 1.0e-6)
-        ? travelDir.clone() : lastLeadDirection.clone();
-    Vector facingDir = normalizeOr(corrected, fallback);
+        Vector fallback = (travelDir != null && travelDir.lengthSquared() > 1.0e-6)
+                ? travelDir.clone()
+                : lastLeadDirection.clone();
+        Vector facingDir = normalizeOr(corrected, fallback);
         lastLeadDirection = facingDir.clone();
-        
+
         addTrailPoint(leadX, leadY, leadZ, leadVx, leadVy, leadVz);
     }
 
@@ -294,10 +305,11 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
      * 2. Apply correction to velocity (onSpacingUpdate)
      * 3. Snap to trail position (snapToPosition)
      * 
-     * TrainCarts snapToPosition: directly sets position and preserves speed magnitude
+     * TrainCarts snapToPosition: directly sets position and preserves speed
+     * magnitude
      */
     private void updateFollowers(TrainInstance train, Railway plugin, double baseSpeed, boolean safe,
-                                 Vector[] spacingCorrections, double spacing) {
+            Vector[] spacingCorrections, double spacing) {
         List<Minecart> cars = train.getConsist().getCars();
         int n = cars.size();
         if (n <= 1) {
@@ -310,20 +322,22 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
             if (car == null || car.isDead()) {
                 continue;
             }
-            
+
             car.setGravity(false);
             car.setSlowWhenEmpty(false);
             car.setFlyingVelocityMod(new Vector(0, 0, 0));
             car.setMaxSpeed(Math.max(0.05, baseSpeed));
-            
-            // Step 1: Determine spacing correction vector (TrainCarts onSpacingUpdate factor)
+
+            // Step 1: Determine spacing correction vector (TrainCarts onSpacingUpdate
+            // factor)
             Vector correction = (spacingCorrections != null && i < spacingCorrections.length)
-                    ? spacingCorrections[i] : null;
+                    ? spacingCorrections[i]
+                    : null;
 
             // Step 2: Find target position on trail (spacing * i behind lead)
             double distanceBehind = spacing * i;
             TrailSample sample = sampleTrailState(distanceBehind, car.getWorld());
-            
+
             if (sample == null) {
                 // No trail available - just apply velocity correction
                 Location currentLoc = RailPathUtil.project(car.getLocation());
@@ -335,7 +349,7 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
                 snapToPosition(car, currentLoc, aligned, tangent, plugin, baseSpeed);
                 continue;
             }
-            
+
             // Step 3: Snap to position (TrainCarts snapToPosition style)
             // - Set position to trail sample location
             // - Preserve velocity magnitude
@@ -343,7 +357,8 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
             Location targetPos = RailPathUtil.project(sample.location);
             Vector motionDir = normalizeOr(sample.tangent, lastLeadDirection);
 
-            // Base speed follows the lead's kinematic trail so passengers cannot stall the consist
+            // Base speed follows the lead's kinematic trail so passengers cannot stall the
+            // consist
             double configuredMax = Math.max(0.05, baseSpeed);
             double baseSampleSpeed = Math.min(sample.speed, configuredMax);
             if (baseSampleSpeed < 1.0e-6) {
@@ -365,14 +380,14 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
     /**
      * Apply minimum speed boost for challenging terrain
      */
-    private double applyTerrainBoost(Location loc, LocationUtil.RailType railType, 
-                                     double currentSpeed, double baseSpeed) {
+    private double applyTerrainBoost(Location loc, LocationUtil.RailType railType,
+            double currentSpeed, double baseSpeed) {
         // Powered ascending rail: ensure minimum speed
         if (LocationUtil.isPoweredAscendingRailPowered(loc)) {
             double minSpeed = Math.max(0.4, baseSpeed * 0.8);
             return Math.max(currentSpeed, minSpeed);
         }
-        
+
         // Curves: maintain momentum but don't boost above current speed
         // This prevents speed oscillation in S-curves
         if (railType == LocationUtil.RailType.CURVE) {
@@ -380,7 +395,7 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
             double criticalMin = Math.max(0.15, baseSpeed * 0.5);
             return Math.max(currentSpeed, criticalMin);
         }
-        
+
         return currentSpeed;
     }
 
@@ -438,7 +453,8 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
     }
 
     /**
-     * Calculate spacing factors for all carts (TrainCarts calculateSpeedFactor equivalent)
+     * Calculate spacing factors for all carts (TrainCarts calculateSpeedFactor
+     * equivalent)
      * Returns correction vectors to be applied to each cart's velocity
      */
     private Vector[] calculateSpeedFactor(List<Minecart> cars, double spacing) {
@@ -462,42 +478,42 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
             // Get actual positions
             Location backLoc = RailPathUtil.project(back.getLocation());
             Location frontLoc = RailPathUtil.project(front.getLocation());
-            
+
             // Calculate direction vector from back to front
             Vector direction = frontLoc.toVector().subtract(backLoc.toVector());
             double actualGap = direction.length();
-            
+
             if (actualGap < 1.0e-6) {
                 // Carts are on same position, use rail direction
                 Vector railDir = RailPathUtil.computeDirection(backLoc, lastLeadDirection);
-                direction = railDir != null && railDir.lengthSquared() > 1.0e-6 
-                    ? railDir.normalize() 
-                    : lastLeadDirection.clone().normalize();
+                direction = railDir != null && railDir.lengthSquared() > 1.0e-6
+                        ? railDir.normalize()
+                        : lastLeadDirection.clone().normalize();
                 actualGap = spacing;
             } else {
                 direction.normalize();
             }
-            
+
             // Calculate gap error (positive = too far apart, negative = too close)
             double gapError = actualGap - spacing;
-            
+
             // TrainCarts approach: correction vector along the line between carts
             Vector correction = direction.multiply(gapError);
-            
+
             // Limit correction magnitude to prevent excessive forces
             double maxCorrection = spacing * 0.5;
             double corrLen = correction.length();
             if (corrLen > maxCorrection) {
                 correction.multiply(maxCorrection / corrLen);
             }
-            
+
             // Apply equal and opposite corrections
             // Back cart gets pushed forward if gap too large, pulled back if too close
             factors[i].add(correction);
             // Front cart gets pulled back if gap too large, pushed forward if too close
             factors[i + 1].subtract(correction.clone());
         }
-        
+
         // Average corrections for middle carts (they have two neighbors)
         for (int i = 1; i < n - 1; i++) {
             factors[i].multiply(0.5);
@@ -507,10 +523,12 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
     }
 
     /**
-     * Apply spacing correction to velocity (TrainCarts onSpacingUpdate - EXACT COPY)
+     * Apply spacing correction to velocity (TrainCarts onSpacingUpdate - EXACT
+     * COPY)
      * TrainCarts formula:
-     *   double f = motLen / member.getEntity().getMaxSpeed();
-     *   velocity.setX(velocity.getX() + f * factor.getX() * TCConfig.cartDistanceForcer);
+     * double f = motLen / member.getEntity().getMaxSpeed();
+     * velocity.setX(velocity.getX() + f * factor.getX() *
+     * TCConfig.cartDistanceForcer);
      * 
      * FIX: Use fixed maxSpeed to ensure loaded/empty carts behave identically
      */
@@ -562,8 +580,6 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
         return result;
     }
 
-
-
     private void maintainTrail(TrainInstance train) {
         if (trail.isEmpty() || train == null) {
             return;
@@ -595,14 +611,17 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
      * Snap minecart to position (TrainCarts snapToPosition - EXACT COPY)
      * TrainCarts implementation:
      * - entity.setPosition(position.posX, position.posY, position.posZ)
-     * - entity.vel.set(position.motX * velocity, position.motY * velocity, position.motZ * velocity)
+     * - entity.vel.set(position.motX * velocity, position.motY * velocity,
+     * position.motZ * velocity)
      */
-    private void snapToPosition(Minecart cart, Location loc, Vector vel, Vector facing, Railway plugin, double speedLimit) {
+    private void snapToPosition(Minecart cart, Location loc, Vector vel, Vector facing, Railway plugin,
+            double speedLimit) {
         // Disable vanilla physics, match TrainCarts order of operations
         cart.setGravity(false);
         cart.setSlowWhenEmpty(false);
         cart.setFlyingVelocityMod(new Vector(0, 0, 0));
-        double configuredMax = Math.max(0.05, speedLimit > 0.0 ? speedLimit : (plugin != null ? plugin.getCartSpeed() : 0.4));
+        double configuredMax = Math.max(0.05,
+                speedLimit > 0.0 ? speedLimit : (plugin != null ? plugin.getCartSpeed() : 0.4));
         cart.setMaxSpeed(configuredMax);
 
         // Determine velocity magnitude and direction
@@ -623,7 +642,8 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
             motionDir = railOrientation.normalize();
         }
 
-        // TrainCarts snapToPosition uses current velocity magnitude along motion direction
+        // TrainCarts snapToPosition uses current velocity magnitude along motion
+        // direction
         Vector targetVel = motionDir.clone().multiply(velocityMag);
 
         // Compute yaw/pitch and wrap exactly like MinecartMember#setRotationWrap
@@ -726,17 +746,17 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
      */
     private void addTrailPoint(double x, double y, double z, double vx, double vy, double vz) {
         double cumDist = 0.0;
-        
+
         if (!trail.isEmpty()) {
             TrailPoint last = trail.peekFirst();
             double dx = x - last.x;
             double dy = y - last.y;
             double dz = z - last.z;
-            cumDist = last.cumulativeDistance + Math.sqrt(dx*dx + dy*dy + dz*dz);
+            cumDist = last.cumulativeDistance + Math.sqrt(dx * dx + dy * dy + dz * dz);
         }
-        
+
         trail.addFirst(new TrailPoint(x, y, z, vx, vy, vz, cumDist));
-        
+
         // Keep trail limited
         while (trail.size() > 900) {
             trail.removeLast();
@@ -747,29 +767,30 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
      * Sample the trail at a specific distance behind the lead
      */
     private TrailPoint sampleTrailAt(double distanceBehind) {
-        if (trail.isEmpty()) return null;
-        
+        if (trail.isEmpty())
+            return null;
+
         TrailPoint head = trail.peekFirst();
         double targetDist = head.cumulativeDistance - distanceBehind;
-        
+
         if (targetDist < 0) {
             // Requesting position beyond our trail - return furthest point
             return trail.peekLast();
         }
-        
+
         TrailPoint prev = head;
         for (TrailPoint point : trail) {
             if (point.cumulativeDistance <= targetDist) {
                 // Interpolate between prev and point
                 double segmentDist = prev.cumulativeDistance - point.cumulativeDistance;
-                
+
                 if (segmentDist < 1.0e-6) {
                     return prev;
                 }
-                
+
                 double t = (targetDist - point.cumulativeDistance) / segmentDist;
                 t = Math.max(0.0, Math.min(1.0, t));
-                
+
                 // Linear interpolation
                 double x = point.x + t * (prev.x - point.x);
                 double y = point.y + t * (prev.y - point.y);
@@ -777,12 +798,12 @@ public class KinematicRailPhysics implements TrainPhysicsEngine {
                 double vx = point.vx + t * (prev.vx - point.vx);
                 double vy = point.vy + t * (prev.vy - point.vy);
                 double vz = point.vz + t * (prev.vz - point.vz);
-                
+
                 return new TrailPoint(x, y, z, vx, vy, vz, targetDist);
             }
             prev = point;
         }
-        
+
         return trail.peekLast();
     }
 

@@ -98,7 +98,7 @@ public class LineService {
     public Line getLine() {
         return plugin.getLineManager().getLine(lineId);
     }
-    
+
     public List<TrainInstance> getActiveTrains() {
         return new ArrayList<>(activeTrains);
     }
@@ -118,8 +118,6 @@ public class LineService {
         return plugin.getTrainSpacing();
     }
 
-    
-
     public String buildSectionKey(String fromStopId, String toStopId) {
         return lineId + ":" + fromStopId + "->" + toStopId;
     }
@@ -132,9 +130,11 @@ public class LineService {
             return (int) Math.ceil(etaTicks / 20.0);
         }
         long elapsed = currentTick - lastDepartureTick;
-        if (elapsed < 0) elapsed = 0;
+        if (elapsed < 0)
+            elapsed = 0;
         long remaining = headwayTicks - (elapsed % headwayTicks);
-        if (remaining == headwayTicks) remaining = 0;
+        if (remaining == headwayTicks)
+            remaining = 0;
         return (int) Math.ceil(remaining / 20.0);
     }
 
@@ -286,12 +286,352 @@ public class LineService {
 
     public boolean isLoopLine() {
         Line line = getLine();
-        if (line == null) return false;
+        if (line == null)
+            return false;
         List<String> stops = line.getOrderedStopIds();
-        if (stops == null || stops.size() < 2) return false;
+        if (stops == null || stops.size() < 2)
+            return false;
         String first = stops.get(0);
         String last = stops.get(stops.size() - 1);
         return first != null && first.equals(last);
     }
-}
 
+    // ===== Virtual Railway System: Multi-mode Spawn Methods =====
+
+    /**
+     * Spawn a train for a virtual train, using the configured spawn mode.
+     * 
+     * @param currentTick    Current server tick
+     * @param fromStopIndex  The stop the train is coming from
+     * @param toStopIndex    The stop the train is heading to
+     * @param progress       Progress through the segment (0-1)
+     * @param virtualTrainId The virtual train ID to associate
+     * @param targetStopId   The stop where player demand exists
+     * @return The spawned TrainInstance, or null if spawn failed
+     */
+    public TrainInstance spawnTrainForVirtual(long currentTick, int fromStopIndex, int toStopIndex,
+            double progress, java.util.UUID virtualTrainId, String targetStopId) {
+        Line line = getLine();
+        if (line == null)
+            return null;
+        List<String> stops = line.getOrderedStopIds();
+        if (stops.size() < 2)
+            return null;
+
+        org.cubexmc.railway.service.virtual.SpawnMode mode = plugin.getLocalSpawnMode();
+        Location spawnLoc = null;
+        float yaw = 0f;
+        int effectiveFromIndex = fromStopIndex;
+
+        switch (mode) {
+            case MID_SEGMENT:
+                spawnLoc = findMidSegmentSpawnLocation(stops, fromStopIndex, toStopIndex, progress);
+                if (spawnLoc != null) {
+                    yaw = computeYawBetweenStops(stops, fromStopIndex, toStopIndex);
+                    break;
+                }
+                // Fall through to PREVIOUS_STOP if mid-segment fails
+
+            case PREVIOUS_STOP:
+                Stop fromStop = plugin.getStopManager().getStop(stops.get(fromStopIndex));
+                if (fromStop != null && fromStop.getStopPointLocation() != null) {
+                    spawnLoc = LocationUtil.center(fromStop.getStopPointLocation().clone());
+                    yaw = fromStop.getLaunchYaw();
+                    effectiveFromIndex = fromStopIndex;
+                }
+                break;
+
+            case PLATFORM_BOUNDARY:
+                spawnLoc = findPlatformBoundarySpawnLocation(stops, targetStopId, fromStopIndex);
+                if (spawnLoc != null) {
+                    yaw = computeYawTowardsStop(spawnLoc, targetStopId);
+                } else {
+                    // Fallback to previous stop
+                    Stop fallbackStop = plugin.getStopManager().getStop(stops.get(fromStopIndex));
+                    if (fallbackStop != null && fallbackStop.getStopPointLocation() != null) {
+                        spawnLoc = LocationUtil.center(fallbackStop.getStopPointLocation().clone());
+                        yaw = fallbackStop.getLaunchYaw();
+                    }
+                }
+                break;
+
+            case CURRENT_STOP:
+                Stop targetStop = plugin.getStopManager().getStop(targetStopId);
+                if (targetStop != null && targetStop.getStopPointLocation() != null) {
+                    spawnLoc = LocationUtil.center(targetStop.getStopPointLocation().clone());
+                    yaw = targetStop.getLaunchYaw();
+                    effectiveFromIndex = stops.indexOf(targetStopId);
+                    if (effectiveFromIndex < 0)
+                        effectiveFromIndex = 0;
+                }
+                break;
+        }
+
+        if (spawnLoc == null) {
+            plugin.getLogger().warning("Failed to find spawn location for line " + lineId + " in mode " + mode);
+            return null;
+        }
+
+        // Ensure spawn location is on rail
+        Location railLoc = findNearestRail(spawnLoc, plugin.getLocalRailSearchRadius());
+        if (railLoc == null) {
+            plugin.getLogger().warning("No rail found near spawn location for line " + lineId + " at " + spawnLoc);
+            // Last resort: use first stop
+            Stop firstStop = plugin.getStopManager().getStop(stops.get(0));
+            if (firstStop != null && firstStop.getStopPointLocation() != null) {
+                railLoc = LocationUtil.center(firstStop.getStopPointLocation().clone());
+                yaw = firstStop.getLaunchYaw();
+                effectiveFromIndex = 0;
+            } else {
+                return null;
+            }
+        } else {
+            railLoc = LocationUtil.center(railLoc);
+        }
+
+        // Spawn the consist
+        TrainConsist consist = spawnConsistAt(railLoc, yaw);
+        if (consist.getCars().isEmpty()) {
+            plugin.getLogger().warning("Failed to spawn minecart consist for line " + lineId);
+            return null;
+        }
+
+        // Create train instance with adjusted state
+        TrainInstance train = new TrainInstance(this, line, consist, stops, currentTick, dwellTicks);
+        train.setVirtualTrainId(virtualTrainId);
+
+        // Adjust train state based on spawn mode
+        if (mode == org.cubexmc.railway.service.virtual.SpawnMode.CURRENT_STOP) {
+            // Train spawned at destination, start in waiting state
+            train.forceWaitingState(effectiveFromIndex, currentTick);
+        } else if (mode == org.cubexmc.railway.service.virtual.SpawnMode.PLATFORM_BOUNDARY
+                && fromStopIndex == toStopIndex) {
+            // Simulating arrival at current stop (from previous)
+            int prevIndex = effectiveFromIndex - 1;
+            if (prevIndex < 0 && isLoopLine()) {
+                prevIndex = stops.size() - 2;
+            }
+
+            if (prevIndex >= 0) {
+                // Set as if departing from previous stop -> will target current stop
+                // (effectiveFromIndex)
+                train.adjustStartIndex(prevIndex, currentTick);
+            } else {
+                // Fallback for start of line (no previous stop)
+                // Spawn at boundary of first stop means we are arriving at first stop
+                train.forceArrivingState(effectiveFromIndex, currentTick);
+            }
+        } else {
+            // Train spawned mid-route, adjust current index
+            train.adjustStartIndex(effectiveFromIndex, currentTick);
+        }
+
+        activeTrains.add(train);
+        manager.registerTrain(train);
+        return train;
+    }
+
+    private Location findMidSegmentSpawnLocation(List<String> stops, int fromIndex, int toIndex, double progress) {
+        if (fromIndex < 0 || fromIndex >= stops.size() || toIndex < 0 || toIndex >= stops.size()) {
+            return null;
+        }
+        Stop fromStop = plugin.getStopManager().getStop(stops.get(fromIndex));
+        Stop toStop = plugin.getStopManager().getStop(stops.get(toIndex));
+        if (fromStop == null || toStop == null)
+            return null;
+
+        Location from = fromStop.getStopPointLocation();
+        Location to = toStop.getStopPointLocation();
+        if (from == null || to == null || from.getWorld() == null)
+            return null;
+        if (!from.getWorld().equals(to.getWorld()))
+            return null;
+
+        // Interpolate position
+        double t = Math.max(0, Math.min(1, progress));
+        Location interpolated = new Location(
+                from.getWorld(),
+                from.getX() + (to.getX() - from.getX()) * t,
+                from.getY() + (to.getY() - from.getY()) * t,
+                from.getZ() + (to.getZ() - from.getZ()) * t);
+
+        // Find nearest rail
+        return findNearestRail(interpolated, plugin.getLocalRailSearchRadius());
+    }
+
+    private Location findPlatformBoundarySpawnLocation(List<String> stops, String targetStopId, int fromIndex) {
+        Stop targetStop = plugin.getStopManager().getStop(targetStopId);
+        if (targetStop == null)
+            return null;
+
+        Location stopPoint = targetStop.getStopPointLocation();
+        if (stopPoint == null)
+            return null;
+
+        // Calculate direction from previous stop
+        // Use LaunchYaw to determine direction of travel through the station.
+        // This is more reliable than calculating vector from previous stop, which
+        // can be misleading if tracks curve between stations.
+        Vector direction = LocationUtil.vectorFromYaw(targetStop.getLaunchYaw());
+
+        if (direction == null) {
+            direction = new Vector(1, 0, 0);
+        } else {
+            // Normalize just in case
+            if (direction.lengthSquared() > 0) {
+                direction.normalize();
+            }
+        }
+
+        // Check if stop has defined boundaries
+        Location corner1 = targetStop.getCorner1();
+        Location corner2 = targetStop.getCorner2();
+
+        if (corner1 != null && corner2 != null && corner1.getWorld() != null
+                && corner1.getWorld().equals(corner2.getWorld())) {
+            // Calculate boundary based on incoming direction
+            double minX = Math.min(corner1.getX(), corner2.getX());
+            double maxX = Math.max(corner1.getX(), corner2.getX());
+            double minZ = Math.min(corner1.getZ(), corner2.getZ());
+            double maxZ = Math.max(corner1.getZ(), corner2.getZ());
+
+            // Find entry point on boundary
+            double boundaryOffset = 3.0; // Spawn 3 blocks outside boundary
+            Location entryPoint = stopPoint.clone();
+
+            if (Math.abs(direction.getX()) > Math.abs(direction.getZ())) {
+                // Entering from X direction
+                if (direction.getX() > 0) {
+                    entryPoint.setX(minX - boundaryOffset);
+                } else {
+                    entryPoint.setX(maxX + boundaryOffset);
+                }
+            } else {
+                // Entering from Z direction
+                if (direction.getZ() > 0) {
+                    entryPoint.setZ(minZ - boundaryOffset);
+                } else {
+                    entryPoint.setZ(maxZ + boundaryOffset);
+                }
+            }
+
+            return findNearestRail(entryPoint, plugin.getLocalRailSearchRadius() + 3);
+        }
+
+        // No boundaries defined, spawn some distance back
+        double distanceBack = 20.0;
+        Location approxEntry = stopPoint.clone().subtract(direction.multiply(distanceBack));
+        return findNearestRail(approxEntry, plugin.getLocalRailSearchRadius());
+    }
+
+    private float computeYawBetweenStops(List<String> stops, int fromIndex, int toIndex) {
+        if (fromIndex < 0 || fromIndex >= stops.size() || toIndex < 0 || toIndex >= stops.size()) {
+            return 0f;
+        }
+        Stop fromStop = plugin.getStopManager().getStop(stops.get(fromIndex));
+        Stop toStop = plugin.getStopManager().getStop(stops.get(toIndex));
+        if (fromStop == null || toStop == null)
+            return fromStop != null ? fromStop.getLaunchYaw() : 0f;
+
+        Location from = fromStop.getStopPointLocation();
+        Location to = toStop.getStopPointLocation();
+        if (from == null || to == null)
+            return fromStop.getLaunchYaw();
+
+        Vector dir = to.toVector().subtract(from.toVector());
+        dir.setY(0);
+        if (dir.lengthSquared() < 1e-6)
+            return fromStop.getLaunchYaw();
+
+        return (float) Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ()));
+    }
+
+    private float computeYawTowardsStop(Location from, String toStopId) {
+        Stop toStop = plugin.getStopManager().getStop(toStopId);
+        if (toStop == null || toStop.getStopPointLocation() == null || from == null)
+            return 0f;
+
+        Vector dir = toStop.getStopPointLocation().toVector().subtract(from.toVector());
+        dir.setY(0);
+        if (dir.lengthSquared() < 1e-6)
+            return toStop.getLaunchYaw();
+
+        return (float) Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ()));
+    }
+
+    private Location findNearestRail(Location center, int radius) {
+        if (center == null || center.getWorld() == null)
+            return null;
+
+        int cx = center.getBlockX();
+        int cy = center.getBlockY();
+        int cz = center.getBlockZ();
+
+        Location best = null;
+        double bestDistSq = Double.MAX_VALUE;
+
+        for (int dy = -radius; dy <= radius; dy++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    Location test = new Location(center.getWorld(), cx + dx, cy + dy, cz + dz);
+                    if (LocationUtil.isRail(test)) {
+                        double distSq = test.distanceSquared(center);
+                        if (distSq < bestDistSq) {
+                            bestDistSq = distSq;
+                            best = test.clone();
+                        }
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    private TrainConsist spawnConsistAt(Location basePoint, float yaw) {
+        TrainConsist consist = new TrainConsist();
+        Vector direction = LocationUtil.vectorFromYaw(yaw);
+        if (direction == null || direction.lengthSquared() == 0) {
+            direction = new Vector(0, 0, 1);
+        }
+        double spacing = getTrainSpacing();
+        double maxSpeed = getCartSpeed();
+
+        for (int i = 0; i < trainCars; i++) {
+            Location spawnLoc = basePoint.clone().subtract(direction.clone().multiply(i * spacing));
+            spawnLoc.setYaw(yaw);
+
+            // Try to find rail for this car
+            if (!LocationUtil.isRail(spawnLoc)) {
+                Location nearRail = findNearestRail(spawnLoc, 2);
+                if (nearRail != null) {
+                    spawnLoc = LocationUtil.center(nearRail);
+                    spawnLoc.setYaw(yaw);
+                } else {
+                    plugin.getLogger().warning("Spawn location for train car is not on rail at " + spawnLoc);
+                    continue;
+                }
+            }
+
+            Minecart cart = spawnLoc.getWorld().spawn(spawnLoc, Minecart.class, minecart -> {
+                minecart.setCustomName("RailwayTrain");
+                minecart.setCustomNameVisible(false);
+                minecart.setSlowWhenEmpty(false);
+                minecart.setMaxSpeed(maxSpeed);
+                minecart.setGravity(false);
+            });
+            consist.addCar(cart);
+        }
+
+        return consist;
+    }
+
+    /**
+     * Virtualize a train back to the virtual pool.
+     */
+    public void virtualizeBackToPool(TrainInstance train, long currentTick) {
+        if (dispatchStrategy instanceof org.cubexmc.railway.service.strategy.LocalDispatchStrategy) {
+            ((org.cubexmc.railway.service.strategy.LocalDispatchStrategy) dispatchStrategy)
+                    .returnTrainToPool(train, currentTick);
+        }
+    }
+}

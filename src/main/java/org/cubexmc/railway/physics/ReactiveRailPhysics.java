@@ -17,15 +17,16 @@ import org.cubexmc.railway.util.MinecartNmsUtil;
 // RailPathUtil is package-private; accessible without import.
 
 /**
- * Reactive spacing controller. No teleports; adjusts velocities to maintain spacing like vanilla.
+ * Reactive spacing controller. No teleports; adjusts velocities to maintain
+ * spacing like vanilla.
  * Uses PD controller with enhanced sensitivity to maintain consistent spacing.
  */
 public class ReactiveRailPhysics implements TrainPhysicsEngine {
 
     // Increased gains for more aggressive spacing control
-    private static final double KP = 0.8;    // position gain (increased from 0.35)
-    private static final double KD = 0.3;    // damping gain (increased from 0.20)
-    private static final double MIN_SPACING = 0.5;  // Minimum spacing at stations (increased from 0.3)
+    private static final double KP = 0.8; // position gain (increased from 0.35)
+    private static final double KD = 0.3; // damping gain (increased from 0.20)
+    private static final double MIN_SPACING = 0.5; // Minimum spacing at stations (increased from 0.3)
     private static final double NORMAL_SPACING = 1.2; // Normal running spacing
 
     private final Map<UUID, Vector> commandedVelocities = new HashMap<>();
@@ -48,12 +49,16 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
     public void tick(TrainInstance train, double timeFraction, long currentTick) {
         Railway plugin = train.getService().getPlugin();
         List<Minecart> cars = train.getConsist().getCars();
-        if (cars.isEmpty()) return;
+        if (cars.isEmpty())
+            return;
 
         // Prune stale entries
-    commandedVelocities.keySet().removeIf(uuid -> cars.stream().noneMatch(cart -> cart != null && !cart.isDead() && uuid.equals(cart.getUniqueId())));
-    lastDirections.keySet().removeIf(uuid -> cars.stream().noneMatch(cart -> cart != null && !cart.isDead() && uuid.equals(cart.getUniqueId())));
-    commandedPositions.keySet().removeIf(uuid -> cars.stream().noneMatch(cart -> cart != null && !cart.isDead() && uuid.equals(cart.getUniqueId())));
+        commandedVelocities.keySet().removeIf(uuid -> cars.stream()
+                .noneMatch(cart -> cart != null && !cart.isDead() && uuid.equals(cart.getUniqueId())));
+        lastDirections.keySet().removeIf(uuid -> cars.stream()
+                .noneMatch(cart -> cart != null && !cart.isDead() && uuid.equals(cart.getUniqueId())));
+        commandedPositions.keySet().removeIf(uuid -> cars.stream()
+                .noneMatch(cart -> cart != null && !cart.isDead() && uuid.equals(cart.getUniqueId())));
 
         double base = train.getService().getCartSpeed();
         for (Minecart car : cars) {
@@ -95,7 +100,8 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
             Vector facing = targetVel.lengthSquared() > 1.0e-8 ? targetVel.clone().normalize() : dir;
 
             Vector displacement = targetVel.clone().multiply(timeFraction);
-            Location targetLoc = leadProjected.clone().add(displacement.getX(), displacement.getY(), displacement.getZ());
+            Location targetLoc = leadProjected.clone().add(displacement.getX(), displacement.getY(),
+                    displacement.getZ());
             targetLoc = ensureRailLocation(targetLoc, lead);
 
             rememberDirection(lead, facing);
@@ -109,13 +115,15 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
         for (int i = 1; i < cars.size(); i++) {
             Minecart prev = cars.get(i - 1);
             Minecart car = cars.get(i);
-            if (prev == null || car == null || prev.isDead() || car.isDead()) continue;
+            if (prev == null || car == null || prev.isDead() || car.isDead())
+                continue;
 
             Location prevProj = ensureRailLocation(getCommandedLocation(prev), prev);
             Location carProj = ensureRailLocation(getCommandedLocation(car), car);
             Vector toPrev = prevProj.toVector().subtract(carProj.toVector());
             double dist = toPrev.length();
-            if (dist < 1.0e-6) continue;
+            if (dist < 1.0e-6)
+                continue;
             Vector baseDir = toPrev.clone().multiply(1.0 / dist); // from car -> prev
             Vector vCar = getCommandedVelocity(car);
             Vector vPrev = getCommandedVelocity(prev);
@@ -144,13 +152,13 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
                 // At higher speeds, maintain slightly more spacing for safety
                 desired = Math.min(NORMAL_SPACING, MIN_SPACING + trainSpeed * 0.3);
             }
-            
+
             double error = dist - desired; // positive: too far; negative: too close
 
             // Enhanced PD control with passenger mass compensation
             double accel = (KP * error - KD * relSpeed) * timeFraction;
             double targetAlong = carAlong + accel;
-            
+
             // CRITICAL: If error is large (>0.5 blocks), be more aggressive
             if (error > 0.5) {
                 // Significantly behind - boost speed more aggressively
@@ -160,15 +168,16 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
                 // Too close - slow down more
                 targetAlong = Math.min(targetAlong, prevAlong * 0.8);
             }
-            
+
             // If already at tight spacing, match predecessor speed
             if (Math.abs(error) < 0.1) {
                 targetAlong = prevAlong;
             }
-            
+
             // Clamp to valid range
             targetAlong = Math.max(0.0, targetAlong); // never pull backwards
-            if (targetAlong > max) targetAlong = max;
+            if (targetAlong > max)
+                targetAlong = max;
 
             // Enforce the computed along-track speed exactly (no blending)
 
@@ -203,7 +212,7 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
     }
 
     private double computeBlendedSafeSpeed(Location currentLoc, Vector direction,
-                                           double baseSpeed, boolean safeMode, Railway plugin) {
+            double baseSpeed, boolean safeMode, Railway plugin) {
         Location reference = currentLoc == null ? null : currentLoc.clone();
         if (reference == null) {
             return Math.max(0.05, baseSpeed);
@@ -245,8 +254,10 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
     }
 
     private void maybeBoostAscendingRail(TrainInstance train, Minecart cart, double baseSpeed) {
-        if (cart == null || cart.isDead()) return;
-        if (!LocationUtil.isPoweredAscendingRailPowered(cart.getLocation())) return;
+        if (cart == null || cart.isDead())
+            return;
+        if (!LocationUtil.isPoweredAscendingRailPowered(cart.getLocation()))
+            return;
         Vector fallback = getCommandedVelocity(cart);
         if (fallback == null || fallback.lengthSquared() < 1.0e-6) {
             fallback = getLastDirection(cart);
@@ -261,7 +272,8 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
                 dir = fallback.clone();
             } else {
                 Vector vel = cart.getVelocity();
-                if (vel.lengthSquared() == 0) return;
+                if (vel.lengthSquared() == 0)
+                    return;
                 dir = vel.clone();
             }
         }
@@ -357,10 +369,16 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
                 ? railDir.normalize()
                 : preferred.clone();
 
+        LocationUtil.RailType railType = LocationUtil.getRailType(snapped);
+        boolean isSlope = railType == LocationUtil.RailType.ASCENDING || railType == LocationUtil.RailType.DESCENDING;
+
         if (previous != null) {
+            double threshold = isSlope ? 0.99 : 0.707;
+            double blendFactor = isSlope ? 0.85 : 0.4;
+
             double dot = result.dot(previous);
-            if (dot < 0.707) {
-                double blend = 0.4;
+            if (dot < threshold) {
+                double blend = blendFactor;
                 Vector blended = previous.clone().multiply(1.0 - blend).add(result.clone().multiply(blend));
                 if (blended.lengthSquared() > 1.0e-8) {
                     result = blended.normalize();
@@ -383,7 +401,8 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
         if (preferred.lengthSquared() < 1.0e-8) {
             preferred = base.lengthSquared() > 1.0e-8 ? base.clone() : getLastDirection(cart);
         }
-        Location snapped = (projectedLocation != null) ? projectedLocation.clone() : RailPathUtil.project(cart.getLocation());
+        Location snapped = (projectedLocation != null) ? projectedLocation.clone()
+                : RailPathUtil.project(cart.getLocation());
         Vector railDir = RailPathUtil.computeDirection(snapped, preferred);
         if (railDir != null && railDir.lengthSquared() > 1.0e-8) {
             double speed = base.length();
@@ -436,7 +455,7 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
     }
 
     private void snapToProjectedPosition(Minecart cart, Location projectedLoc, Vector velocity,
-                                         Vector facing, Railway plugin) {
+            Vector facing, Railway plugin) {
         if (cart == null || cart.isDead() || projectedLoc == null) {
             return;
         }
@@ -510,5 +529,3 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
     }
 
 }
-
-

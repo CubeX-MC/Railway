@@ -7,72 +7,197 @@ import org.cubexmc.railway.model.Line;
 import org.cubexmc.railway.model.Stop;
 import org.cubexmc.railway.service.DispatchStrategy;
 import org.cubexmc.railway.service.LineService;
+import org.cubexmc.railway.service.virtual.VirtualTrain;
+import org.cubexmc.railway.service.virtual.VirtualTrainPool;
 import org.cubexmc.railway.train.TrainInstance;
 
 /**
- * Local mode dispatch: defer physical spawning until needed. Use ETA estimates to schedule a
- * spawn so that the train virtually 'arrives' at a player-occupied station after a short lead time.
- * If a passenger-carrying train is already approaching that station soon, suppress spawning.
+ * Local mode dispatch: maintain a virtual railway network where trains run
+ * continuously in a virtual layer. When a virtual train arrives at a station
+ * with player demand, it is materialized into a physical train.
+ * 
+ * Key design: Virtual trains simulate real-time positions. Physical trains
+ * only spawn when a virtual train ACTUALLY arrives at a station where
+ * players are waiting.
  */
 public class LocalDispatchStrategy implements DispatchStrategy {
 
-    private long scheduledSpawnTick = -1L;
-    private String scheduledForStopId = null;
+    private VirtualTrainPool pool;
+    private boolean initialized = false;
+
+    // Track which stop has player demand (for materialization check)
+    private String currentDemandStopId = null;
+
+    // Cooldown to prevent rapid re-spawn
+    private long lastSpawnTick = -1L;
+    private static final long SPAWN_COOLDOWN_TICKS = 60; // 3 seconds
 
     @Override
     public void tick(LineService service, long currentTick) {
-        // Execute a scheduled spawn when time comes (re-check suppression before spawning)
-        if (scheduledSpawnTick > 0 && currentTick >= scheduledSpawnTick) {
-            if (!isLoopTrainArrivingSoon(service, currentTick)
-                    && !isSuppressedByIncomingPassengerTrain(service, currentTick, scheduledForStopId)) {
-                // Keep headway clock consistent when executing a scheduled spawn
-                service.markDeparture(currentTick);
-                service.spawnTrain(currentTick);
-            }
-            scheduledSpawnTick = -1L;
-            scheduledForStopId = null;
+        // Initialize pool on first tick
+        if (!initialized) {
+            initializePool(service, currentTick);
+            initialized = true;
         }
 
-        // Headway gate: on new departure slot, compute next scheduled spawn if demand exists
-        if (service.isDepartureWindow(currentTick)) {
-            Stop demandStop = findPlayerOccupiedStop(service);
-            if (demandStop == null) {
-                // no demand visible -> do not spawn now
-                return;
+        if (pool == null) {
+            return;
+        }
+
+        Railway plugin = service.getPlugin();
+        Line line = service.getLine();
+        if (line == null)
+            return;
+        List<String> stops = line.getOrderedStopIds();
+
+        // First, clean up stale materialized markers
+        cleanupStaleMaterializations(service);
+
+        // Update player demand
+        Stop demandStop = findPlayerOccupiedStop(service);
+        currentDemandStopId = (demandStop != null) ? demandStop.getId() : null;
+
+        // Check if we already have a physical train for this line
+        boolean hasPhysicalTrain = !service.getActiveTrains().isEmpty();
+
+        // Check spawn cooldown
+        boolean onCooldown = lastSpawnTick > 0 && (currentTick - lastSpawnTick) < SPAWN_COOLDOWN_TICKS;
+
+        // Update virtual train positions (this moves them forward in time)
+        // IMPORTANT: Update pool BEFORE checking for materialization
+        // This ensures that if a train was just cleaned up (and dwell expired),
+        // it departs before we try to spawn it again.
+        pool.tick(currentTick, plugin.getTravelTimeEstimator());
+
+        // Try to materialize a virtual train that has ARRIVED at the demand stop
+        if (currentDemandStopId != null && !hasPhysicalTrain && !onCooldown) {
+            tryMaterializeArrivedTrain(service, currentTick, stops);
+        }
+    }
+
+    /**
+     * Try to materialize a virtual train that has arrived at the demand stop.
+     * Only spawn if a virtual train is at (or very close to) the demand stop.
+     */
+    private void tryMaterializeArrivedTrain(LineService service, long currentTick, List<String> stops) {
+        Railway plugin = service.getPlugin();
+        int demandIndex = stops.indexOf(currentDemandStopId);
+        if (demandIndex < 0)
+            return;
+
+        // Look for a virtual train that has arrived at the demand stop
+        for (VirtualTrain vt : pool.getVirtualTrains()) {
+            if (pool.isMaterialized(vt.getId())) {
+                continue;
             }
 
-            // If incoming passenger train will arrive soon, do not schedule a spawn
-            if (isSuppressedByIncomingPassengerTrain(service, currentTick, demandStop.getId())) {
-                return;
-            }
+            // Check if this virtual train is at the demand stop
+            // It must be in WAITING state at the exact stop index
+            if (vt.getState() == VirtualTrain.State.WAITING && vt.getCurrentStopIndex() == demandIndex) {
+                // Virtual train has arrived! Materialize it.
+                plugin.getLogger().info("[LocalDispatch] Virtual train " +
+                        vt.getId().toString().substring(0, 8) + " arrived at " + currentDemandStopId);
 
-            if (service.isLoopLine() && isLoopTrainArrivingSoon(service, currentTick)) {
-                return;
+                if (materializeTrain(service, vt, currentDemandStopId, demandIndex, stops, currentTick)) {
+                    lastSpawnTick = currentTick;
+                    return; // Only spawn one train
+                }
             }
+        }
 
-            long spawnAt = computeSpawnTickForArrivalLead(service, currentTick, demandStop);
-            if (spawnAt <= currentTick) {
-                // spawn immediately
-                service.markDeparture(currentTick);
-                service.spawnTrain(currentTick);
-            } else {
-                service.markDeparture(currentTick);
-                scheduledSpawnTick = spawnAt;
-                scheduledForStopId = demandStop.getId();
+        // No train has arrived yet - this is normal, player waits for ETA
+        // Log occasionally to show system is working
+        if (currentTick % 100 == 0) { // Every 5 seconds
+            VirtualTrain closest = findClosestVirtualTrain(demandIndex, plugin);
+            if (closest != null) {
+                double eta = closest.estimateEtaToStop(demandIndex, plugin.getTravelTimeEstimator());
+                plugin.getLogger().fine("[LocalDispatch] Waiting for train to arrive at " +
+                        currentDemandStopId + ", ETA=" + String.format("%.1f", eta) + "s");
             }
         }
     }
 
+    private VirtualTrain findClosestVirtualTrain(int demandIndex, Railway plugin) {
+        VirtualTrain closest = null;
+        double bestEta = Double.POSITIVE_INFINITY;
+
+        for (VirtualTrain vt : pool.getVirtualTrains()) {
+            if (pool.isMaterialized(vt.getId()))
+                continue;
+            double eta = vt.estimateEtaToStop(demandIndex, plugin.getTravelTimeEstimator());
+            if (Double.isFinite(eta) && eta < bestEta) {
+                bestEta = eta;
+                closest = vt;
+            }
+        }
+        return closest;
+    }
+
+    /**
+     * Clean up materialized markers for virtual trains whose physical trains no
+     * longer exist.
+     */
+    private void cleanupStaleMaterializations(LineService service) {
+        if (pool == null)
+            return;
+
+        List<TrainInstance> activeTrains = service.getActiveTrains();
+        List<VirtualTrain> virtualTrains = pool.getVirtualTrains();
+
+        for (VirtualTrain vt : virtualTrains) {
+            if (!pool.isMaterialized(vt.getId())) {
+                continue;
+            }
+
+            // Check if any active train has this virtual train ID
+            boolean found = false;
+            for (TrainInstance ti : activeTrains) {
+                if (vt.getId().equals(ti.getVirtualTrainId())) {
+                    found = true;
+                    break;
+                }
+            }
+
+            // If no physical train found, un-materialize
+            if (!found) {
+                // Just clear the materialized flag - virtual train continues from its current
+                // position
+                pool.clearMaterialized(vt.getId());
+                service.getPlugin().getLogger().info(
+                        "[LocalDispatch] Cleared materialization for " + vt.getId().toString().substring(0, 8));
+            }
+        }
+    }
+
+    private void initializePool(LineService service, long currentTick) {
+        Line line = service.getLine();
+        if (line == null) {
+            return;
+        }
+
+        pool = new VirtualTrainPool(service.getLineId(), service.getDwellTicks());
+        pool.initialize(line, service.getHeadwaySeconds(),
+                service.getPlugin().getTravelTimeEstimator(), currentTick);
+
+        service.getPlugin().getLogger().info(
+                "[LocalDispatch] Initialized pool for line " + service.getLineId() +
+                        " with " + pool.getActiveCount() + " virtual trains");
+    }
+
     private Stop findPlayerOccupiedStop(LineService service) {
         Line line = service.getLine();
-        if (line == null) return null;
+        if (line == null)
+            return null;
+
         List<String> stopIds = line.getOrderedStopIds();
         Railway plugin = service.getPlugin();
         double radius = plugin.getLocalActivationRadius();
         double radiusSq = radius * radius;
+
         for (String sid : stopIds) {
             Stop s = plugin.getStopManager().getStop(sid);
-            if (s == null || s.getStopPointLocation() == null) continue;
+            if (s == null || s.getStopPointLocation() == null)
+                continue;
             if (plugin.isPlayerWithinStopRadius(s, radiusSq)) {
                 return s;
             }
@@ -80,69 +205,53 @@ public class LocalDispatchStrategy implements DispatchStrategy {
         return null;
     }
 
-    private boolean isSuppressedByIncomingPassengerTrain(LineService service, long currentTick, String stopId) {
-        if (stopId == null) return false;
-        Railway plugin = service.getPlugin();
-        double threshold = plugin.getLocalSuppressThresholdSeconds();
-        for (TrainInstance t : service.getActiveTrains()) {
-            if (!t.isMoving() || !t.hasPassengers()) continue;
-            String target = t.getTargetStopId();
-            if (target == null || !target.equals(stopId)) continue;
-            String fromId = t.getCurrentFromStopId();
-            String toId = t.getCurrentToStopId();
-            if (fromId == null || toId == null) continue;
-            double total = plugin.getTravelTimeEstimator().estimateSeconds(service.getLineId(), fromId, toId);
-            double elapsed = t.getSegmentElapsedSeconds(currentTick);
-            double remaining = Math.max(0.0, total - elapsed);
-            if (remaining <= threshold) {
-                return true;
-            }
-        }
-        return false;
-    }
+    private boolean materializeTrain(LineService service, VirtualTrain vt,
+            String targetStopId, int targetIndex, List<String> stops, long currentTick) {
 
-    private long computeSpawnTickForArrivalLead(LineService service, long currentTick, Stop demandStop) {
         Railway plugin = service.getPlugin();
-        Line line = service.getLine();
-        List<String> stops = line.getOrderedStopIds();
-        if (stops.isEmpty()) return currentTick;
-        String first = stops.get(0);
-        String target = demandStop.getId();
-        double travelSeconds = 0.0;
-        boolean started = false;
-        for (int i = 0; i < stops.size() - 1; i++) {
-            String from = stops.get(i);
-            String to = stops.get(i + 1);
-            if (!started && from.equals(first)) started = true;
-            if (started) {
-                travelSeconds += plugin.getTravelTimeEstimator().estimateSeconds(service.getLineId(), from, to);
-                if (to.equals(target)) break;
-            }
-        }
-        long lead = plugin.getLocalSpawnLeadTicks();
-        long spawnTick = currentTick + lead - (long) Math.round(travelSeconds * 20.0);
-        return Math.max(currentTick, spawnTick);
-    }
 
-    private boolean isLoopTrainArrivingSoon(LineService service, long currentTick) {
-        if (!service.isLoopLine()) {
+        // Don't spawn at terminal for non-loop lines
+        if (targetIndex >= stops.size() - 1 && !service.isLoopLine()) {
+            plugin.getLogger().fine("[LocalDispatch] Skipping terminal stop " + targetStopId);
             return false;
         }
-        Line line = service.getLine();
-        if (line == null) return false;
-        List<String> ordered = line.getOrderedStopIds();
-        if (ordered.isEmpty()) return false;
-        String startStopId = ordered.get(0);
-        double threshold = Math.max(2.0, service.getHeadwaySeconds() * 0.5);
-        for (TrainInstance train : service.getActiveTrains()) {
-            double eta = train.estimateEtaSecondsToStop(startStopId, currentTick,
-                    service.getPlugin().getTravelTimeEstimator());
-            if (Double.isFinite(eta) && eta <= threshold) {
-                return true;
-            }
+
+        // Virtual train is at targetStop, spawn the physical train there
+        int fromStopIndex = vt.getCurrentStopIndex();
+        int toStopIndex = fromStopIndex; // Target the station we are at!
+
+        // Spawn the physical train at the current stop
+        TrainInstance train = service.spawnTrainForVirtual(
+                currentTick, fromStopIndex, toStopIndex, 0.0,
+                vt.getId(), targetStopId);
+
+        if (train != null) {
+            pool.markMaterialized(vt.getId());
+            plugin.getLogger().info("[LocalDispatch] Train materialized at " + targetStopId);
+            return true;
+        } else {
+            plugin.getLogger().warning("[LocalDispatch] Failed to spawn train at " + targetStopId);
+            return false;
         }
-        return false;
+    }
+
+    /**
+     * Return a physical train back to the virtual pool.
+     */
+    public void returnTrainToPool(TrainInstance train, long currentTick) {
+        if (pool == null)
+            return;
+
+        java.util.UUID vtId = train.getVirtualTrainId();
+        if (vtId == null)
+            return;
+
+        TrainInstance.VirtualizationState state = train.getVirtualizationState(currentTick);
+        pool.returnToVirtual(vtId, state.currentIndex, state.targetIndex,
+                state.progress, state.isWaiting, currentTick);
+    }
+
+    public VirtualTrainPool getPool() {
+        return pool;
     }
 }
-
-

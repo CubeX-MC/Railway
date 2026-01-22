@@ -1,6 +1,8 @@
+org\cubexmc\railway\service\virtual\VirtualTrainPool$SegmentBoundary.class
 org\cubexmc\railway\train\TrainInstance.class
 org\cubexmc\railway\physics\RailPathUtil$PathSpec.class
 org\cubexmc\railway\Metrics$JsonObjectBuilder$JsonObject.class
+org\cubexmc\railway\service\virtual\SpawnMode.class
 org\cubexmc\railway\manager\SelectionManager.class
 org\cubexmc\railway\service\strategy\LocalDispatchStrategy.class
 org\cubexmc\railway\estimation\TravelTimeEstimator.class
@@ -27,6 +29,7 @@ org\cubexmc\railway\train\TrainInstance$1.class
 org\cubexmc\railway\model\Stop.class
 org\cubexmc\railway\util\OwnershipUtil.class
 org\cubexmc\railway\physics\TrainCartsBridge$TrainHandle.class
+org\cubexmc\railway\service\virtual\VirtualTrainPool.class
 org\cubexmc\railway\util\SchedulerUtil.class
 org\cubexmc\railway\Metrics$MultiLineChart.class
 org\cubexmc\railway\physics\LeashCoupler.class
@@ -40,6 +43,7 @@ org\cubexmc\railway\control\TrainControlMode.class
 org\cubexmc\railway\physics\KinematicRailPhysics$TrailPoint.class
 org\cubexmc\railway\manager\LineManager.class
 org\cubexmc\railway\util\FaceUtil.class
+org\cubexmc\railway\service\virtual\VirtualTrain.class
 org\cubexmc\railway\Railway.class
 org\cubexmc\railway\util\LocationUtil$RailType.class
 org\cubexmc\railway\util\LocationUtil$1.class
@@ -47,7 +51,9 @@ org\cubexmc\railway\Metrics$SimplePie.class
 org\cubexmc\railway\physics\TrainCartsBridge.class
 org\cubexmc\railway\listener\VehicleListener.class
 org\cubexmc\railway\Metrics$DrilldownPie.class
+org\cubexmc\railway\service\virtual\VirtualTrain$State.class
 org\cubexmc\railway\util\AdventureUtil.class
+org\cubexmc\railway\service\LineService$1.class
 org\cubexmc\railway\service\LineServiceManager$1.class
 org\cubexmc\railway\update\LanguageUpdater.class
 org\cubexmc\railway\util\LocationUtil.class
@@ -64,6 +70,7 @@ org\cubexmc\railway\util\Quaternion.class
 org\cubexmc\railway\update\ConfigUpdater.class
 org\cubexmc\railway\Metrics$CustomChart.class
 org\cubexmc\railway\listener\PlayerMoveListener$StopDisplayContext.class
+org\cubexmc\railway\train\TrainInstance$VirtualizationState.class
 org\cubexmc\railway\estimation\TravelTimeEstimator$SectionStats.class
 org\cubexmc\railway\Metrics$JsonObjectBuilder.class
 org\cubexmc\railway\train\ScoreboardManager.class
