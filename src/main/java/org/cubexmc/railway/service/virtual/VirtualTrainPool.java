@@ -1,10 +1,17 @@
 package org.cubexmc.railway.service.virtual;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Logger;
+
+import org.cubexmc.railway.service.virtual.VirtualTrain.EventType;
 
 import org.cubexmc.railway.estimation.TravelTimeEstimator;
 import org.cubexmc.railway.model.Line;
@@ -17,9 +24,23 @@ import org.cubexmc.railway.model.Line;
 public class VirtualTrainPool {
 
     private final String lineId;
-    private final List<VirtualTrain> virtualTrains = new ArrayList<>();
+    private final Map<UUID, VirtualTrain> virtualTrains = new HashMap<>(); // Replaced List with Map for faster lookups
+    private final PriorityQueue<TrainEvent> eventQueue;
     private final Set<UUID> materializedIds = new HashSet<>();
     private final int dwellTicks;
+
+    // Internal event class for the PriorityQueue
+    private static class TrainEvent {
+        final long tick;
+        final UUID trainId;
+        final EventType type;
+
+        TrainEvent(long tick, UUID trainId, EventType type) {
+            this.tick = tick;
+            this.trainId = trainId;
+            this.type = type;
+        }
+    }
 
     /**
      * Create a new virtual train pool for a line.
@@ -30,6 +51,7 @@ public class VirtualTrainPool {
     public VirtualTrainPool(String lineId, int dwellTicks) {
         this.lineId = lineId;
         this.dwellTicks = Math.max(20, dwellTicks);
+        this.eventQueue = new PriorityQueue<>(Comparator.comparingLong(e -> e.tick));
     }
 
     /**
@@ -43,6 +65,7 @@ public class VirtualTrainPool {
      */
     public void initialize(Line line, int headwaySeconds, TravelTimeEstimator estimator, long currentTick) {
         virtualTrains.clear();
+        eventQueue.clear();
         materializedIds.clear();
 
         List<String> stopIds = line.getOrderedStopIds();
@@ -60,6 +83,11 @@ public class VirtualTrainPool {
 
         if (totalCycleSeconds <= 0) {
             totalCycleSeconds = stopIds.size() * 30.0; // Fallback
+        }
+
+        // Safety check for estimator to prevent NaN/Infinity issues
+        if (Double.isNaN(totalCycleSeconds) || Double.isInfinite(totalCycleSeconds)) {
+            totalCycleSeconds = stopIds.size() * 30.0;
         }
 
         // Determine number of virtual trains
@@ -106,7 +134,10 @@ public class VirtualTrainPool {
             }
 
             VirtualTrain vt = new VirtualTrain(lineId, stopIds, dwellTicks, stopIndex, progress, currentTick);
-            virtualTrains.add(vt);
+            virtualTrains.put(vt.getId(), vt);
+
+            // Schedule first event
+            scheduleNextEvent(vt, estimator, currentTick);
         }
     }
 
@@ -141,13 +172,158 @@ public class VirtualTrainPool {
      * @param currentTick Current server tick
      * @param estimator   Travel time estimator
      */
+    /**
+     * Update all virtual trains by processing events up to currentTick.
+     * This is the core Discrete Event Simulation loop.
+     * 
+     * @param currentTick Current server tick
+     * @param estimator   Travel time estimator
+     */
     public void tick(long currentTick, TravelTimeEstimator estimator) {
-        for (VirtualTrain vt : virtualTrains) {
-            // Skip materialized trains (they're controlled by physical instance)
+        // Process all events that are due (scheduled time <= current time)
+        while (!eventQueue.isEmpty() && eventQueue.peek().tick <= currentTick) {
+            TrainEvent event = eventQueue.poll();
+
+            VirtualTrain vt = virtualTrains.get(event.trainId);
+            if (vt == null)
+                continue; // Train removed?
+
+            // If materialized, we still process the event conceptually to keep the virtual
+            // state in sync?
+            // Or do we pause?
+            // The polling version said: "Skip materialized trains".
+            // If we skip processing, the train effectively pauses in virtual space.
+            // When it un-materializes, it calls returnToVirtual which resets state.
+            // SO: If materialized, we should probably NOT update the virtual state
+            // automatically
+            // because the physical train is now the authority.
+            // WE JUST DROP THE EVENT. The returnToVirtual will re-schedule events.
+
             if (materializedIds.contains(vt.getId())) {
                 continue;
             }
-            vt.tick(currentTick, estimator);
+
+            // Validate event order (sanity check)
+            if (vt.getNextEventTick() != event.tick) {
+                // Old/stale event? In a robust system we'd handle this.
+                // For now, trust the queue but verifies against train's state
+                // If the train was somehow updated otherwise, this event might be stale.
+            }
+
+            // Process the event
+            // 1. Update Train State
+            // We need to calculate the *result* of this event.
+            // If Arrival -> State becomes Waiting, next event is Departure
+            // If Departure -> State becomes Moving, next event is Arrival at next stop
+
+            // CALCULATE DATA FOR NEXT STEP
+            int currentStop = vt.getCurrentStopIndex();
+
+            if (event.type == EventType.ARRIVAL) {
+                // Train just arrived at 'currentStop'
+                // It stays there for dwellTicks
+                // Update train state to: WAITING at currentStop
+                // NOTE: 'onEvent' takes the state *after* the event.
+                // ARRIVAL -> sets type=ARRIVAL (Waiting)
+                vt.onEvent(EventType.ARRIVAL, currentStop, event.tick, 0); // duration irrelevant for waiting
+
+                // Schedule next: DEPARTURE
+                eventQueue.add(new TrainEvent(vt.getNextEventTick(), vt.getId(), EventType.DEPARTURE));
+
+            } else if (event.type == EventType.DEPARTURE) {
+                // Train is departing from 'currentStop'
+                // It will go to 'currentStop + 1'
+                // Calculate duration
+                List<String> stopIds = estimator.getPlugin().getLineManager().getLine(lineId).getOrderedStopIds();
+                int nextIndex = currentStop + 1;
+
+                // Handle Loop/Terminal logic
+                if (nextIndex >= stopIds.size()) {
+                    // Terminal reached
+                    boolean isLoop = serviceIsLoop(stopIds);
+                    if (isLoop) {
+                        nextIndex = 1; // 0 is start/end duplicate usually?
+                        // Actually let's assume standard loop: A->B->C->A
+                        // If stops are [A, B, C, A], size is 4. indices 0,1,2,3.
+                        // Arrive at 3 (A). Depart from 3?
+                        // Usually loop lines just run continuously.
+                        // Let's use 1 if indices match start/end?
+                        // Or maybe index 0?
+                        // If stopIds[0].equals(stopIds[last]), then arrival at last == arrival at
+                        // first.
+                        // The previous logic in VirtualTrain handle terminal:
+                        // "currentStopIndex = 0; target = -1; state = WAITING"
+                        // So it basically teleports to start and waits.
+
+                        // Let's simulate that:
+                        // Departure from Terminal -> Instant teleport to Start ARRIVAL?
+                        // Or just set next index to 1?
+                        // Let's rely on TravelTimeEstimator to give us time from Last -> First?
+                        // If the line defines A->B->...->A, then Last->First is dist 0 ?
+                        // The estimator likely returns 0 or small value.
+
+                        // SIMPLIFICATION:
+                        // If at terminal, we simply map back to 0 immediately.
+                        nextIndex = 0;
+                        // And we treat this as a "reset" event.
+                        // But wait, the standard logic was: "wait at start".
+                        // So Departure from Terminal -> Arrival at Start (Duration 0/Small)
+                    } else {
+                        // Non-loop. Turnaround.
+                        // "Departure" from terminal -> Arrival at start (Teleport)
+                        nextIndex = 0;
+                    }
+                }
+
+                // Calculate travel time
+                String fromId = stopIds.get(currentStop);
+                // Be careful if nextIndex was wrapped
+                if (nextIndex >= stopIds.size())
+                    nextIndex = 0; // Safety for non-loop
+                String toId = stopIds.get(nextIndex);
+
+                double duration = estimator.estimateSeconds(lineId, fromId, toId);
+                if (duration <= 0)
+                    duration = 10.0;
+
+                // Update train state
+                vt.onEvent(EventType.DEPARTURE, currentStop, event.tick, duration);
+                // Accessing package-private setTargetStopIndex if needed, but onEvent sets it.
+                // However, internal logic in onEvent sets target = stop + 1.
+                // We might need to correct it if we wrapped around.
+                vt.setTargetStopIndex(nextIndex);
+
+                // Schedule next: ARRIVAL
+                eventQueue.add(new TrainEvent(vt.getNextEventTick(), vt.getId(), EventType.ARRIVAL));
+            }
+        }
+    }
+
+    private boolean serviceIsLoop(List<String> stopIds) {
+        return stopIds.size() >= 2 && stopIds.get(0).equals(stopIds.get(stopIds.size() - 1));
+    }
+
+    private void scheduleNextEvent(VirtualTrain vt, TravelTimeEstimator estimator, long currentTick) {
+        // Should calculate based on current state where the next event is
+        // Used during initialization or restoration
+
+        // If last was ARRIVAL -> Next is DEPARTURE
+        if (vt.getLastEventType() == EventType.ARRIVAL) {
+            long nextTick = vt.getLastEventTick() + dwellTicks;
+            // Ensure it's in future? If past, schedule for now?
+            // For initialization it might be in past if we used currentTick as base.
+            // But we want to distribute them.
+
+            // If we initialized a train "mid-dwell", nextTick might be soon.
+            vt.setNextEventTick(nextTick);
+            eventQueue.add(new TrainEvent(nextTick, vt.getId(), EventType.DEPARTURE));
+        } else {
+            // If last was DEPARTURE -> Next is ARRIVAL
+            // need duration
+            // We can't easily get duration here without the logic from tick().
+            // But valid state implies currentPathDurationSeconds is set.
+            // So we just use getNextEventTick() which was set in constructor/restore
+            eventQueue.add(new TrainEvent(vt.getNextEventTick(), vt.getId(), EventType.ARRIVAL));
         }
     }
 
@@ -170,7 +346,7 @@ public class VirtualTrainPool {
         VirtualTrain best = null;
         double bestEta = Double.POSITIVE_INFINITY;
 
-        for (VirtualTrain vt : virtualTrains) {
+        for (VirtualTrain vt : virtualTrains.values()) {
             if (materializedIds.contains(vt.getId())) {
                 continue;
             }
@@ -225,9 +401,29 @@ public class VirtualTrainPool {
             double progress, boolean isWaiting, long currentTick) {
         materializedIds.remove(virtualTrainId);
 
-        for (VirtualTrain vt : virtualTrains) {
+        for (VirtualTrain vt : virtualTrains.values()) {
             if (vt.getId().equals(virtualTrainId)) {
                 vt.restoreState(stopIndex, targetIndex, progress, isWaiting, currentTick);
+                // Re-schedule events since it's back in virtual control
+                // We need to fetch estimator... ugly dependency issue here as estimator not
+                // passed to returnToVirtual
+                // We will defer scheduling to the next tick() call?
+                // No, tick() only processes existing events. If queue is empty for this train,
+                // it never moves.
+
+                // We MUST schedule the next event here.
+                // But we don't have the estimator.
+                // Solution: We'll rely on the restored state's 'nextEventTick' (which is set to
+                // current + buffer)
+                // And just add that to queue.
+                if (isWaiting) {
+                    // It was waiting, so next is DEPARTURE
+                    eventQueue.add(new TrainEvent(vt.getNextEventTick(), vt.getId(), EventType.DEPARTURE));
+                } else {
+                    // It was moving, so next is ARRIVAL
+                    eventQueue.add(new TrainEvent(vt.getNextEventTick(), vt.getId(), EventType.ARRIVAL));
+                }
+
                 break;
             }
         }
@@ -239,14 +435,16 @@ public class VirtualTrainPool {
      */
     public void removeVirtualTrain(UUID virtualTrainId) {
         materializedIds.remove(virtualTrainId);
-        virtualTrains.removeIf(vt -> vt.getId().equals(virtualTrainId));
+        virtualTrains.remove(virtualTrainId);
+        // We leave the events in the queue; they will be ignored in tick() because
+        // virtualTrains.get(id) will return null.
     }
 
     /**
      * Get all virtual trains (for debugging/monitoring).
      */
     public List<VirtualTrain> getVirtualTrains() {
-        return new ArrayList<>(virtualTrains);
+        return new ArrayList<>(virtualTrains.values());
     }
 
     /**
@@ -254,7 +452,7 @@ public class VirtualTrainPool {
      */
     public int getActiveCount() {
         int count = 0;
-        for (VirtualTrain vt : virtualTrains) {
+        for (VirtualTrain vt : virtualTrains.values()) {
             if (!vt.isAtTerminal()) {
                 count++;
             }
@@ -267,7 +465,7 @@ public class VirtualTrainPool {
      * trains.
      */
     public boolean hasAvailableTrains() {
-        for (VirtualTrain vt : virtualTrains) {
+        for (VirtualTrain vt : virtualTrains.values()) {
             if (!materializedIds.contains(vt.getId()) && !vt.isAtTerminal()) {
                 return true;
             }

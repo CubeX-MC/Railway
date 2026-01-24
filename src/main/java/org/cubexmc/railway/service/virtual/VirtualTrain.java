@@ -24,20 +24,26 @@ public class VirtualTrain {
         MOVING // Traveling between stations
     }
 
+    public enum EventType {
+        ARRIVAL, // Arrived at a station (start of dwell)
+        DEPARTURE // Departed from a station (start of travel)
+    }
+
     private final UUID id;
     private final String lineId;
     private final List<String> stopIds;
     private final int dwellTicks;
     private final boolean isLoop;
 
-    private State state;
-    private int currentStopIndex; // Current or last departed stop index
-    private int targetStopIndex; // Target stop index when moving (-1 when waiting)
-    private double segmentProgress; // 0.0 to 1.0 progress through current segment
-    private long stateStartTick; // Tick when current state started
+    // DES State
+    private long lastEventTick;
+    private EventType lastEventType;
+    private int currentStopIndex;
+    private int targetStopIndex;
 
-    // Cached segment travel time for efficiency
-    private double cachedSegmentSeconds = -1;
+    // For interpolation
+    private long nextEventTick;
+    private double currentPathDurationSeconds; // For progress calculation
 
     /**
      * Create a new virtual train.
@@ -58,17 +64,24 @@ public class VirtualTrain {
         this.isLoop = stopIds.size() >= 2 && stopIds.get(0).equals(stopIds.get(stopIds.size() - 1));
 
         this.currentStopIndex = Math.max(0, Math.min(initialStopIndex, stopIds.size() - 1));
-        this.stateStartTick = initialTick;
 
+        // Initialize state based on progress
         if (initialProgress > 0 && currentStopIndex < stopIds.size() - 1) {
-            this.state = State.MOVING;
+            // In transit
+            this.lastEventType = EventType.DEPARTURE;
             this.targetStopIndex = currentStopIndex + 1;
-            this.segmentProgress = Math.min(1.0, initialProgress);
+            this.lastEventTick = initialTick; // Approximate, will be fixed by first update
+            // We'll need a first update to correct the nextEventTick
         } else {
-            this.state = State.WAITING;
+            // Waiting at station
+            this.lastEventType = EventType.ARRIVAL;
             this.targetStopIndex = -1;
-            this.segmentProgress = 0.0;
+            this.lastEventTick = initialTick;
         }
+
+        // Initialize "next" fields to avoid NPEs before first simulation step
+        this.nextEventTick = initialTick + 1;
+        this.currentPathDurationSeconds = 10.0;
     }
 
     public UUID getId() {
@@ -80,7 +93,7 @@ public class VirtualTrain {
     }
 
     public State getState() {
-        return state;
+        return lastEventType == EventType.ARRIVAL ? State.WAITING : State.MOVING;
     }
 
     public int getCurrentStopIndex() {
@@ -91,8 +104,19 @@ public class VirtualTrain {
         return targetStopIndex;
     }
 
-    public double getSegmentProgress() {
-        return segmentProgress;
+    public double getSegmentProgress(long currentTick) {
+        if (lastEventType == EventType.ARRIVAL) {
+            // Waiting: progress depends on dwell time
+            long elapsed = currentTick - lastEventTick;
+            return Math.min(1.0, (double) elapsed / dwellTicks);
+        } else {
+            // Moving: progress depends on travel time
+            long elapsed = currentTick - lastEventTick;
+            if (currentPathDurationSeconds <= 0)
+                return 0.0;
+            double elapsedSeconds = elapsed / 20.0;
+            return Math.min(1.0, elapsedSeconds / currentPathDurationSeconds);
+        }
     }
 
     public String getCurrentStopId() {
@@ -110,91 +134,56 @@ public class VirtualTrain {
     }
 
     /**
-     * Update the virtual train's position based on elapsed time.
-     * 
-     * @param currentTick Current server tick
-     * @param estimator   Travel time estimator for segment durations
+     * Update the train state to a specific event.
      */
-    public void tick(long currentTick, TravelTimeEstimator estimator) {
-        switch (state) {
-            case WAITING:
-                tickWaiting(currentTick);
-                break;
-            case MOVING:
-                tickMoving(currentTick, estimator);
-                break;
-        }
-    }
+    public void onEvent(EventType type, int stopIndex, long eventTick, double nextDurationSeconds) {
+        this.lastEventType = type;
+        this.currentStopIndex = stopIndex;
+        this.lastEventTick = eventTick;
+        this.currentPathDurationSeconds = nextDurationSeconds;
 
-    private void tickWaiting(long currentTick) {
-        long elapsed = currentTick - stateStartTick;
-        if (elapsed >= dwellTicks) {
-            // Ready to depart
-            if (currentStopIndex >= stopIds.size() - 1) {
-                // At terminal
+        if (type == EventType.ARRIVAL) {
+            // Now waiting at station
+            this.targetStopIndex = -1;
+            // Next event will be DEPARTURE after dwellTicks
+            this.nextEventTick = eventTick + dwellTicks;
+        } else {
+            // Now moving to next station
+            // Determine target
+            int next = stopIndex + 1;
+            if (next >= stopIds.size()) {
                 if (isLoop) {
-                    // Loop line: wrap to start
-                    currentStopIndex = 0;
-                    targetStopIndex = -1;
-                    state = State.WAITING; // Wait at start
-                    stateStartTick = currentTick;
-                    segmentProgress = 0.0;
-                    cachedSegmentSeconds = -1;
-                } else {
-                    // Non-loop terminal: "turnaround" - reset to first stop
-                    // This simulates the train going back to the depot and
-                    // restarting service from the beginning
-                    currentStopIndex = 0;
-                    targetStopIndex = -1;
-                    state = State.WAITING; // Wait at start
-                    stateStartTick = currentTick;
-                    segmentProgress = 0.0;
-                    cachedSegmentSeconds = -1;
+                    next = 1; // 0 is same as N-1 in loop def usually, but let's stick to standard next
+                    // Actually, for loop, we rely on the caller logic to wrap index
                 }
-            } else {
-                // Depart to next stop
-                targetStopIndex = currentStopIndex + 1;
-                state = State.MOVING;
-                stateStartTick = currentTick;
-                segmentProgress = 0.0;
-                cachedSegmentSeconds = -1;
             }
+            this.targetStopIndex = next; // Warning: caller must ensure this is correct or we need logic here
+            // Next event will be ARRIVAL after duration
+            this.nextEventTick = eventTick + (long) (nextDurationSeconds * 20.0);
         }
     }
 
-    private void tickMoving(long currentTick, TravelTimeEstimator estimator) {
-        if (targetStopIndex < 0 || targetStopIndex >= stopIds.size()) {
-            // Invalid state, reset to waiting
-            state = State.WAITING;
-            stateStartTick = currentTick;
-            return;
-        }
+    /**
+     * Sets the target stop index explicitely (used by the pool logic)
+     */
+    public void setTargetStopIndex(int index) {
+        this.targetStopIndex = index;
+    }
 
-        // Get segment travel time
-        if (cachedSegmentSeconds < 0) {
-            String fromId = stopIds.get(currentStopIndex);
-            String toId = stopIds.get(targetStopIndex);
-            cachedSegmentSeconds = estimator.estimateSeconds(lineId, fromId, toId);
-            if (cachedSegmentSeconds <= 0) {
-                cachedSegmentSeconds = 10.0; // Fallback
-            }
-        }
+    public void setNextEventTick(long tick) {
+        this.nextEventTick = tick;
+    }
 
-        // Calculate progress
-        long elapsedTicks = currentTick - stateStartTick;
-        double elapsedSeconds = elapsedTicks / 20.0;
-        segmentProgress = Math.min(1.0, elapsedSeconds / cachedSegmentSeconds);
+    public long getNextEventTick() {
+        return nextEventTick;
+    }
 
-        // Check arrival
-        if (segmentProgress >= 1.0) {
-            // Arrived at target
-            currentStopIndex = targetStopIndex;
-            targetStopIndex = -1;
-            state = State.WAITING;
-            stateStartTick = currentTick;
-            segmentProgress = 0.0;
-            cachedSegmentSeconds = -1;
-        }
+    public long getLastEventTick() {
+        return lastEventTick;
+    }
+
+    public EventType getLastEventType() {
+        return lastEventType;
     }
 
     /**
@@ -211,7 +200,7 @@ public class VirtualTrain {
         }
 
         // Already at or past this stop?
-        if (state == State.WAITING && currentStopIndex == stopIndex) {
+        if (lastEventType == EventType.ARRIVAL && currentStopIndex == stopIndex) {
             return 0.0;
         }
 
@@ -222,12 +211,50 @@ public class VirtualTrain {
 
         double eta = 0.0;
 
-        if (state == State.MOVING) {
+        if (lastEventType == EventType.DEPARTURE) {
             // Add remaining time in current segment
-            String fromId = stopIds.get(currentStopIndex);
-            String toId = stopIds.get(targetStopIndex);
-            double segmentTotal = estimator.estimateSeconds(lineId, fromId, toId);
-            double remaining = segmentTotal * (1.0 - segmentProgress);
+            // We trust nextEventTick to be the arrival time at targetStopIndex
+            // ETA = nextEventTick - currentTick (converted to seconds)
+            // But nextEventTick refers to Arrival at targetStopIndex
+
+            // Wait, estimateEta is called with external time reference?
+            // Usually assumes "now".
+            // We need to pass currentTick or assume it's roughly "now"
+
+            // The method signature uses estimator but not currentTick.
+            // We should use System.currentTimeMillis or rely on lastEventTick
+            // THIS IS TRICKY without currentTick.
+            // Let's assume we are called "during" the tick process so we might need to
+            // accept currentTick or use the queue time.
+
+            // For now, let's use the stored state.
+            // This is a limitation of the current API not passing currentTick to this
+            // method.
+            // We'll calculate purely based on stored path duration and progress.
+
+            double remaining = 0;
+            if (targetStopIndex >= 0) {
+                String fromId = stopIds.get(currentStopIndex);
+                String toId = stopIds.get(targetStopIndex);
+                double segmentTotal = estimator.estimateSeconds(lineId, fromId, toId);
+                // We don't have currentTick here!
+                // Let's assume this method is only appropriate if we track progress externally
+                // OR we can change the signature? No, LocalDispatchStrategy calls it.
+                // We have to estimate "now" or store "lastTickedTime"
+
+                // Actually, in DES, we don't update progress every tick.
+                // So "how far is the train" is a function of (Now - lastEventTime).
+                // We definitely need 'now'.
+                // BUT: The caller (LocalDispatchStatement) does not pass 'now'.
+                // I will ADD currentTick to the signature in LocalDispatchStrategy later?
+                // Or I can use Bukkit.getCurrentTick()? Yes, that's safe in main thread.
+
+                long now = org.bukkit.Bukkit.getCurrentTick();
+                long elapsed = now - lastEventTick;
+                double elapsedSeconds = elapsed / 20.0;
+                remaining = Math.max(0, segmentTotal - elapsedSeconds);
+            }
+
             eta += remaining;
 
             if (targetStopIndex == stopIndex) {
@@ -240,6 +267,12 @@ public class VirtualTrain {
             eta += sumTravelTime(from, to, estimator);
         } else {
             // Waiting state: sum from current to destination
+            // Remaining dwell time
+            long now = org.bukkit.Bukkit.getCurrentTick();
+            long elapsed = now - lastEventTick;
+            double remainingDwell = Math.max(0, (dwellTicks - elapsed) / 20.0);
+            eta += remainingDwell;
+
             eta += sumTravelTime(currentStopIndex, stopIndex, estimator);
         }
 
@@ -287,7 +320,7 @@ public class VirtualTrain {
      * @return Estimated location, or null if cannot be determined
      */
     public Location estimateCurrentLocation(StopManager stopManager) {
-        if (state == State.WAITING) {
+        if (lastEventType == EventType.ARRIVAL) {
             Stop stop = stopManager.getStop(stopIds.get(currentStopIndex));
             return stop != null ? stop.getStopPointLocation() : null;
         }
@@ -305,7 +338,7 @@ public class VirtualTrain {
         if (!from.getWorld().equals(to.getWorld()))
             return from;
 
-        double t = segmentProgress;
+        double t = getSegmentProgress(org.bukkit.Bukkit.getCurrentTick());
         return new Location(
                 from.getWorld(),
                 from.getX() + (to.getX() - from.getX()) * t,
@@ -321,7 +354,7 @@ public class VirtualTrain {
      */
     public Vector estimateTravelDirection(StopManager stopManager) {
         int fromIdx = currentStopIndex;
-        int toIdx = (state == State.MOVING && targetStopIndex >= 0)
+        int toIdx = (lastEventType == EventType.DEPARTURE && targetStopIndex >= 0)
                 ? targetStopIndex
                 : (currentStopIndex + 1 < stopIds.size() ? currentStopIndex + 1 : currentStopIndex);
 
@@ -372,17 +405,19 @@ public class VirtualTrain {
     public void restoreState(int stopIndex, int targetIndex, double progress,
             boolean isWaiting, long currentTick) {
         this.currentStopIndex = Math.max(0, Math.min(stopIndex, stopIds.size() - 1));
-        this.stateStartTick = currentTick;
-        this.cachedSegmentSeconds = -1;
+        this.lastEventTick = currentTick;
+        this.currentPathDurationSeconds = 10.0; // Default buffer
 
         if (isWaiting || targetIndex < 0) {
-            this.state = State.WAITING;
+            this.lastEventType = EventType.ARRIVAL;
             this.targetStopIndex = -1;
-            this.segmentProgress = 0.0;
+            this.nextEventTick = currentTick + dwellTicks;
         } else {
-            this.state = State.MOVING;
+            this.lastEventType = EventType.DEPARTURE;
             this.targetStopIndex = Math.max(0, Math.min(targetIndex, stopIds.size() - 1));
-            this.segmentProgress = Math.max(0, Math.min(1.0, progress));
+            // We don't have the estimator here to know true duration,
+            // but the next event loop will correct it or we use default
+            this.nextEventTick = currentTick + (long) (10.0 * 20.0);
         }
     }
 
@@ -393,12 +428,12 @@ public class VirtualTrain {
     public boolean isAtTerminal() {
         if (isLoop)
             return false;
-        return state == State.WAITING && currentStopIndex >= stopIds.size() - 1;
+        return lastEventType == EventType.ARRIVAL && currentStopIndex >= stopIds.size() - 1;
     }
 
     @Override
     public String toString() {
-        return String.format("VirtualTrain[%s, line=%s, state=%s, stop=%d->%d, progress=%.2f]",
-                id.toString().substring(0, 8), lineId, state, currentStopIndex, targetStopIndex, segmentProgress);
+        return String.format("VirtualTrain[%s, line=%s, event=%s, stop=%d->%d]",
+                id.toString().substring(0, 8), lineId, lastEventType, currentStopIndex, targetStopIndex);
     }
 }

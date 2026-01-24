@@ -12,9 +12,12 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.cubexmc.railway.Railway;
 
 /**
- * Bayesian travel time estimator per line section using a Normal mean update with fixed prior strength.
- * Stores a prior mean (mu0) and prior strength (kappa0) and maintains weighted observations online.
- * Outliers are rejected based on a configurable sigma threshold using online variance (Welford's method).
+ * Bayesian travel time estimator per line section using a Normal mean update
+ * with fixed prior strength.
+ * Stores a prior mean (mu0) and prior strength (kappa0) and maintains weighted
+ * observations online.
+ * Outliers are rejected based on a configurable sigma threshold using online
+ * variance (Welford's method).
  * Optionally applies daily decay to observed weights to adapt over time.
  */
 public class TravelTimeEstimator {
@@ -35,6 +38,10 @@ public class TravelTimeEstimator {
         this.storeFile = new File(dir, DATA_FILE);
     }
 
+    public Railway getPlugin() {
+        return plugin;
+    }
+
     public void load() {
         statsByKey.clear();
         if (!storeFile.exists()) {
@@ -42,19 +49,20 @@ public class TravelTimeEstimator {
         }
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(storeFile);
         ConfigurationSection root = yaml.getConfigurationSection("sections");
-        if (root == null) return;
+        if (root == null)
+            return;
         for (String key : root.getKeys(false)) {
             ConfigurationSection cs = root.getConfigurationSection(key);
-            if (cs == null) continue;
+            if (cs == null)
+                continue;
             SectionStats s = new SectionStats(
-                cs.getDouble("mu0", plugin.getDefaultSectionSeconds()),
-                cs.getDouble("kappa0", plugin.getPriorStrength()),
-                cs.getDouble("sum", 0.0),
-                cs.getDouble("weight", 0.0),
-                cs.getDouble("mean", 0.0),
-                cs.getDouble("m2", 0.0),
-                cs.getInt("lastDay", LocalDate.now().getDayOfYear())
-            );
+                    cs.getDouble("mu0", plugin.getDefaultSectionSeconds()),
+                    cs.getDouble("kappa0", plugin.getPriorStrength()),
+                    cs.getDouble("sum", 0.0),
+                    cs.getDouble("weight", 0.0),
+                    cs.getDouble("mean", 0.0),
+                    cs.getDouble("m2", 0.0),
+                    cs.getInt("lastDay", LocalDate.now().getDayOfYear()));
             statsByKey.put(key, s);
         }
     }
@@ -93,10 +101,13 @@ public class TravelTimeEstimator {
     }
 
     public void record(String lineId, String fromStopId, String toStopId, double durationSeconds, double sampleWeight) {
-        if (!plugin.isTravelTimeEnabled()) return;
-        if (durationSeconds <= 0.01) return;
+        if (!plugin.isTravelTimeEnabled())
+            return;
+        if (durationSeconds <= 0.01)
+            return;
         sampleWeight = Math.max(0.0, sampleWeight);
-        if (sampleWeight == 0.0) return;
+        if (sampleWeight == 0.0)
+            return;
 
         SectionStats s = getOrCreate(lineId, fromStopId, toStopId);
         s.decayIfNeeded(plugin.getDecayPerDay());
@@ -113,8 +124,10 @@ public class TravelTimeEstimator {
         }
 
         // Online weighted Welford update for observed mean/variance
-        // Convert to unit-weight updates by splitting? We'll approximate using simple accumulation for mean/variance.
-        // Mean/variance maintenance for diagnostics/outlier only; sum/weight drive the posterior.
+        // Convert to unit-weight updates by splitting? We'll approximate using simple
+        // accumulation for mean/variance.
+        // Mean/variance maintenance for diagnostics/outlier only; sum/weight drive the
+        // posterior.
         double totalWeight = s.weight + sampleWeight;
         double delta = durationSeconds - s.mean;
         double r = sampleWeight / Math.max(1e-9, totalWeight);
@@ -130,24 +143,26 @@ public class TravelTimeEstimator {
         String key = key(lineId, fromStopId, toStopId);
         SectionStats s = statsByKey.get(key);
         if (s == null) {
-            s = new SectionStats(plugin.getDefaultSectionSeconds(), plugin.getPriorStrength(), 0.0, 0.0, 0.0, 0.0, LocalDate.now().getDayOfYear());
+            s = new SectionStats(plugin.getDefaultSectionSeconds(), plugin.getPriorStrength(), 0.0, 0.0, 0.0, 0.0,
+                    LocalDate.now().getDayOfYear());
             statsByKey.put(key, s);
         }
         return s;
     }
 
     private String key(String lineId, String fromStopId, String toStopId) {
-        return Objects.toString(lineId, "?") + ":" + Objects.toString(fromStopId, "?") + "->" + Objects.toString(toStopId, "?");
+        return Objects.toString(lineId, "?") + ":" + Objects.toString(fromStopId, "?") + "->"
+                + Objects.toString(toStopId, "?");
     }
 
     private static final class SectionStats {
         final double mu0;
         final double kappa0;
-        double sum;     // weighted sum of observations
-        double weight;  // total weight of observations
-        double mean;    // observed mean (for outlier detection)
-        double m2;      // observed sum of squares of differences from mean
-        int lastDay;    // day-of-year for decay
+        double sum; // weighted sum of observations
+        double weight; // total weight of observations
+        double mean; // observed mean (for outlier detection)
+        double m2; // observed sum of squares of differences from mean
+        int lastDay; // day-of-year for decay
 
         SectionStats(double mu0, double kappa0, double sum, double weight, double mean, double m2, int lastDay) {
             this.mu0 = mu0;
@@ -160,24 +175,26 @@ public class TravelTimeEstimator {
         }
 
         double stddev() {
-            if (weight <= 1.0) return 0.0;
+            if (weight <= 1.0)
+                return 0.0;
             double variance = m2 / (weight - 1.0);
             return variance > 0 ? Math.sqrt(variance) : 0.0;
         }
 
         void decayIfNeeded(double decayPerDay) {
-            if (decayPerDay >= 0.9999) return;
+            if (decayPerDay >= 0.9999)
+                return;
             int today = LocalDate.now().getDayOfYear();
             int days = today - lastDay;
-            if (days <= 0) return;
+            if (days <= 0)
+                return;
             double factor = Math.pow(Math.max(0.0, Math.min(1.0, decayPerDay)), days);
             sum *= factor;
             weight *= factor;
-            // For mean/m2, applying same factor approximates decay of effective observations
+            // For mean/m2, applying same factor approximates decay of effective
+            // observations
             m2 *= factor;
             lastDay = today;
         }
     }
 }
-
-
