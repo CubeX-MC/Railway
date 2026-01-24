@@ -1,5 +1,5 @@
 name: Railway
-version: 0.1.0
+version: 0.2.0
 main: org.cubexmc.railway.Railway
 api-version: '1.21'
 folia-supported: true
