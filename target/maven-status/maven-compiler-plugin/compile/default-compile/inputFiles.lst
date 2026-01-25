@@ -1,6 +1,10 @@
 C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\railway\command\RailCommand.java
 C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\railway\control\TrainControlMode.java
 C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\railway\estimation\TravelTimeEstimator.java
+C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\railway\gui\GuiHolder.java
+C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\railway\gui\GuiListener.java
+C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\railway\gui\GuiManager.java
+C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\railway\gui\ItemBuilder.java
 C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\railway\listener\PlayerInteractListener.java
 C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\railway\listener\PlayerMoveListener.java
 C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\railway\listener\VehicleListener.java

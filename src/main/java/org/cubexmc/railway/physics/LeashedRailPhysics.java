@@ -1,6 +1,5 @@
 package org.cubexmc.railway.physics;
 
-import org.bukkit.entity.Minecart;
 import org.cubexmc.railway.model.Stop;
 import org.cubexmc.railway.train.TrainInstance;
 
@@ -29,15 +28,11 @@ public class LeashedRailPhysics extends ReactiveRailPhysics {
 
     @Override
     public void tick(TrainInstance train, double timeFraction, long currentTick) {
-        for (Minecart car : train.getConsist().getCars()) {
-            if (car != null && !car.isDead()) {
-                car.setSlowWhenEmpty(false);
-                car.setGravity(false);
-                car.setFlyingVelocityMod(new org.bukkit.util.Vector(0, 0, 0));
-            }
-        }
+        // Physics settings (setSlowWhenEmpty, setGravity, etc.) are handled by
+        // super.tick()
         super.tick(train, timeFraction, currentTick);
-        if (coupler != null) coupler.update();
+        if (coupler != null)
+            coupler.update();
     }
 
     @Override
@@ -49,5 +44,3 @@ public class LeashedRailPhysics extends ReactiveRailPhysics {
         super.cleanup(train);
     }
 }
-
-

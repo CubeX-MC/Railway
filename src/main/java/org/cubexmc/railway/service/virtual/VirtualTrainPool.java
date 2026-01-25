@@ -27,7 +27,9 @@ public class VirtualTrainPool {
     private final Map<UUID, VirtualTrain> virtualTrains = new HashMap<>(); // Replaced List with Map for faster lookups
     private final PriorityQueue<TrainEvent> eventQueue;
     private final Set<UUID> materializedIds = new HashSet<>();
+
     private final int dwellTicks;
+    private List<String> cachedStopIds = new ArrayList<>(); // Store the topology currently used by trains
 
     // Internal event class for the PriorityQueue
     private static class TrainEvent {
@@ -72,6 +74,7 @@ public class VirtualTrainPool {
         if (stopIds == null || stopIds.size() < 2) {
             return;
         }
+        this.cachedStopIds = new ArrayList<>(stopIds);
 
         // Calculate total cycle time (travel + dwell at each stop)
         double totalTravelSeconds = 0;
@@ -225,7 +228,10 @@ public class VirtualTrainPool {
                 // Update train state to: WAITING at currentStop
                 // NOTE: 'onEvent' takes the state *after* the event.
                 // ARRIVAL -> sets type=ARRIVAL (Waiting)
-                vt.onEvent(EventType.ARRIVAL, currentStop, event.tick, 0); // duration irrelevant for waiting
+                // ARRIVAL -> sets type=ARRIVAL (Waiting)
+                // Use cached stops
+                vt.onEvent(EventType.ARRIVAL, currentStop, event.tick, 0, cachedStopIds); // duration irrelevant for
+                                                                                          // waiting
 
                 // Schedule next: DEPARTURE
                 eventQueue.add(new TrainEvent(vt.getNextEventTick(), vt.getId(), EventType.DEPARTURE));
@@ -234,7 +240,7 @@ public class VirtualTrainPool {
                 // Train is departing from 'currentStop'
                 // It will go to 'currentStop + 1'
                 // Calculate duration
-                List<String> stopIds = estimator.getPlugin().getLineManager().getLine(lineId).getOrderedStopIds();
+                List<String> stopIds = cachedStopIds;
                 int nextIndex = currentStop + 1;
 
                 // Handle Loop/Terminal logic
@@ -287,7 +293,8 @@ public class VirtualTrainPool {
                     duration = 10.0;
 
                 // Update train state
-                vt.onEvent(EventType.DEPARTURE, currentStop, event.tick, duration);
+                // Update train state
+                vt.onEvent(EventType.DEPARTURE, currentStop, event.tick, duration, stopIds);
                 // Accessing package-private setTargetStopIndex if needed, but onEvent sets it.
                 // However, internal logic in onEvent sets target = stop + 1.
                 // We might need to correct it if we wrapped around.
@@ -350,7 +357,7 @@ public class VirtualTrainPool {
             if (materializedIds.contains(vt.getId())) {
                 continue;
             }
-            if (vt.isAtTerminal()) {
+            if (vt.isAtTerminal(stopIds)) {
                 continue;
             }
 
@@ -397,13 +404,14 @@ public class VirtualTrainPool {
      * @param isWaiting      Whether the train was waiting
      * @param currentTick    Current tick
      */
+
     public void returnToVirtual(UUID virtualTrainId, int stopIndex, int targetIndex,
-            double progress, boolean isWaiting, long currentTick) {
+            double progress, boolean isWaiting, long currentTick, List<String> stopIds) {
         materializedIds.remove(virtualTrainId);
 
         for (VirtualTrain vt : virtualTrains.values()) {
             if (vt.getId().equals(virtualTrainId)) {
-                vt.restoreState(stopIndex, targetIndex, progress, isWaiting, currentTick);
+                vt.restoreState(stopIndex, targetIndex, progress, isWaiting, currentTick, stopIds);
                 // Re-schedule events since it's back in virtual control
                 // We need to fetch estimator... ugly dependency issue here as estimator not
                 // passed to returnToVirtual
@@ -450,10 +458,10 @@ public class VirtualTrainPool {
     /**
      * Get count of active (non-terminal) virtual trains.
      */
-    public int getActiveCount() {
+    public int getActiveCount(List<String> stopIds) {
         int count = 0;
         for (VirtualTrain vt : virtualTrains.values()) {
-            if (!vt.isAtTerminal()) {
+            if (!vt.isAtTerminal(stopIds)) {
                 count++;
             }
         }
@@ -464,13 +472,49 @@ public class VirtualTrainPool {
      * Check if there are any available (non-materialized, non-terminal) virtual
      * trains.
      */
-    public boolean hasAvailableTrains() {
+    public boolean hasAvailableTrains(List<String> stopIds) {
         for (VirtualTrain vt : virtualTrains.values()) {
-            if (!materializedIds.contains(vt.getId()) && !vt.isAtTerminal()) {
+            if (!materializedIds.contains(vt.getId()) && !vt.isAtTerminal(stopIds)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Refresh the topology of all virtual trains.
+     * 
+     * @param oldStopIds  The previous list of stop IDs
+     * @param newStopIds  The new list of stop IDs
+     * @param estimator   TravelTimeEstimator
+     * @param currentTick Current server tick
+     */
+    public void refreshTopology(List<String> newStopIds, TravelTimeEstimator estimator,
+            long currentTick) {
+        // Use cachedStopIds as oldStopIds
+        List<String> oldStopIds = new ArrayList<>(this.cachedStopIds);
+
+        // Update cache
+        this.cachedStopIds = new ArrayList<>(newStopIds);
+
+        // Clear events as they are invalid
+        eventQueue.clear();
+
+        for (VirtualTrain vt : virtualTrains.values()) {
+            // Apply sync
+            vt.syncToNewTopology(oldStopIds, newStopIds, estimator, currentTick);
+
+            // Re-schedule
+            if (materializedIds.contains(vt.getId())) {
+                continue; // Materialized trains handle themselves (or should be updated via physically
+                          // checking?)
+                // Actually if materialized, the physical train is authority.
+                // When it returns to virtual, it will sync to NEW topology because
+                // returnToVirtual will use new stopIds.
+            } else {
+                scheduleNextEvent(vt, estimator, currentTick);
+            }
+        }
     }
 
     public String getLineId() {

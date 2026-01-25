@@ -25,6 +25,15 @@ service:
   default_train_cars: 3
 
 settings:
+  # Train entity configuration
+  train:
+    # Custom name for the minecart entity
+    # 矿车实体的自定义名称
+    name: "RailwayTrain"
+    # Whether the custom name is visible (nameplate)
+    # 是否显示自定义名称标签
+    name_visible: false
+
   # Default language for plugin messages
   # 默认语言（示例 zh_CN = 简体中文）
   default_language: zh_CN

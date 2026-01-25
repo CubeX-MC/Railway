@@ -1,8 +1,10 @@
 package org.cubexmc.railway.physics;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.bukkit.Location;
@@ -52,13 +54,16 @@ public class ReactiveRailPhysics implements TrainPhysicsEngine {
         if (cars.isEmpty())
             return;
 
-        // Prune stale entries
-        commandedVelocities.keySet().removeIf(uuid -> cars.stream()
-                .noneMatch(cart -> cart != null && !cart.isDead() && uuid.equals(cart.getUniqueId())));
-        lastDirections.keySet().removeIf(uuid -> cars.stream()
-                .noneMatch(cart -> cart != null && !cart.isDead() && uuid.equals(cart.getUniqueId())));
-        commandedPositions.keySet().removeIf(uuid -> cars.stream()
-                .noneMatch(cart -> cart != null && !cart.isDead() && uuid.equals(cart.getUniqueId())));
+        // Prune stale entries - single pass collection of valid UUIDs
+        Set<UUID> validUuids = new HashSet<>();
+        for (Minecart cart : cars) {
+            if (cart != null && !cart.isDead()) {
+                validUuids.add(cart.getUniqueId());
+            }
+        }
+        commandedVelocities.keySet().retainAll(validUuids);
+        lastDirections.keySet().retainAll(validUuids);
+        commandedPositions.keySet().retainAll(validUuids);
 
         double base = train.getService().getCartSpeed();
         for (Minecart car : cars) {

@@ -59,6 +59,32 @@ public class LineService {
         activeTrains.clear();
     }
 
+    /**
+     * Refresh the stops for this line, notifying strategies of the update.
+     * Call this when stops are added/removed from the line definition.
+     */
+    public void refreshStops() {
+        Line line = getLine();
+        if (line == null)
+            return;
+        List<String> newStops = line.getOrderedStopIds();
+
+        long currentTick = Bukkit.getCurrentTick();
+        if (dispatchStrategy != null) {
+            dispatchStrategy.refreshTopology(this, newStops, currentTick);
+        }
+
+        // Also update active trains?
+        // Physical trains usually query stops directly from Line.
+        // But if they have internal state dependent on indices, they might break.
+        // TrainInstance stores `stops` list. It needs to optionally update it?
+        // For now, physical trains might desync if they are midway.
+        // We might want to finish them or update them.
+        // A simple approach is to let them finish their current segment (if valid) or
+        // fail safely.
+        // But refreshing VirtualTrains is the main goal here.
+    }
+
     public String getLineId() {
         return lineId;
     }
@@ -215,8 +241,11 @@ public class LineService {
             }
 
             Minecart cart = spawnLoc.getWorld().spawn(spawnLoc, Minecart.class, minecart -> {
-                minecart.setCustomName("RailwayTrain");
-                minecart.setCustomNameVisible(false);
+                String customName = plugin.getConfig().getString("settings.train.name", "RailwayTrain");
+                boolean nameVisible = plugin.getConfig().getBoolean("settings.train.name_visible", false);
+
+                minecart.setCustomName(customName);
+                minecart.setCustomNameVisible(nameVisible);
                 minecart.setSlowWhenEmpty(false);
                 minecart.setMaxSpeed(maxSpeed);
                 minecart.setGravity(false);
@@ -252,25 +281,17 @@ public class LineService {
         this.trainCars = Math.max(1, trainCars);
     }
 
+    /**
+     * Compute travel direction using ONLY launchYaw - never use position
+     * differences.
+     * Direction is always the launchYaw of the departure station.
+     */
     public Vector computeTravelDirection(Stop fromStop, Stop toStop) {
-        if (fromStop == null || toStop == null || fromStop.getStopPointLocation() == null
-                || toStop.getStopPointLocation() == null) {
-            return fromStop != null ? LocationUtil.vectorFromYaw(fromStop.getLaunchYaw()) : new Vector(0, 0, 0);
+        if (fromStop == null) {
+            return new Vector(0, 0, 1);
         }
-
-        Location fromLocation = LocationUtil.center(fromStop.getStopPointLocation().clone());
-        Location toLocation = LocationUtil.center(toStop.getStopPointLocation().clone());
-        if (fromLocation == null || toLocation == null || fromLocation.getWorld() == null
-                || toLocation.getWorld() == null || !fromLocation.getWorld().equals(toLocation.getWorld())) {
-            return LocationUtil.vectorFromYaw(fromStop.getLaunchYaw());
-        }
-
-        Vector direction = toLocation.toVector().subtract(fromLocation.toVector());
-        direction.setY(0);
-        if (direction.lengthSquared() == 0) {
-            return LocationUtil.vectorFromYaw(fromStop.getLaunchYaw());
-        }
-        return direction.normalize();
+        Vector direction = LocationUtil.vectorFromYaw(fromStop.getLaunchYaw());
+        return (direction != null && direction.lengthSquared() > 0) ? direction.normalize() : new Vector(0, 0, 1);
     }
 
     public void handleTrainDerail(TrainInstance train) {
@@ -412,13 +433,31 @@ public class LineService {
                 prevIndex = stops.size() - 2;
             }
 
-            if (prevIndex >= 0) {
-                // Set as if departing from previous stop -> will target current stop
-                // (effectiveFromIndex)
-                train.adjustStartIndex(prevIndex, currentTick);
+            // CRITICAL: Train is arriving at target stop from outside the boundary.
+            // Calculate EXACT vector from spawn point to target stop to avoid ambiguity.
+            Stop targetStop = plugin.getStopManager().getStop(targetStopId);
+            if (targetStop != null && targetStop.getStopPointLocation() != null) {
+                // Direction = Normalize(Target - Spawn)
+                Vector spawnVec = train.getConsist().getLeadCar().getLocation().toVector();
+                Vector targetVec = targetStop.getStopPointLocation().toVector();
+                Vector distinctDir = targetVec.subtract(spawnVec);
+
+                if (distinctDir.lengthSquared() > 0.001) {
+                    distinctDir.normalize();
+                    // Force arriving state with EXPLICIT direction
+                    train.forceArrivingState(effectiveFromIndex, currentTick, distinctDir);
+
+                    // Also set velocity explicitly to ensure immediate correct movement
+                    Minecart lead = consist.getLeadCar();
+                    if (lead != null && !lead.isDead()) {
+                        Vector velocity = distinctDir.clone().multiply(getCartSpeed());
+                        lead.setVelocity(velocity);
+                    }
+                } else {
+                    // Fallback if spawn is exactly on target (unlikely due to boundary offset)
+                    train.forceArrivingState(effectiveFromIndex, currentTick);
+                }
             } else {
-                // Fallback for start of line (no previous stop)
-                // Spawn at boundary of first stop means we are arriving at first stop
                 train.forceArrivingState(effectiveFromIndex, currentTick);
             }
         } else {
@@ -468,19 +507,15 @@ public class LineService {
         if (stopPoint == null)
             return null;
 
-        // Calculate direction from previous stop
-        // Use LaunchYaw to determine direction of travel through the station.
-        // This is more reliable than calculating vector from previous stop, which
-        // can be misleading if tracks curve between stations.
-        Vector direction = LocationUtil.vectorFromYaw(targetStop.getLaunchYaw());
+        // LaunchYaw is the OUTGOING direction from this station.
+        // Train spawns on the OPPOSITE side (entrance) and moves in launchYaw
+        // direction.
+        Vector launchDir = LocationUtil.vectorFromYaw(targetStop.getLaunchYaw());
 
-        if (direction == null) {
-            direction = new Vector(1, 0, 0);
+        if (launchDir == null || launchDir.lengthSquared() < 1e-6) {
+            launchDir = new Vector(1, 0, 0);
         } else {
-            // Normalize just in case
-            if (direction.lengthSquared() > 0) {
-                direction.normalize();
-            }
+            launchDir = launchDir.normalize();
         }
 
         // Check if stop has defined boundaries
@@ -489,28 +524,32 @@ public class LineService {
 
         if (corner1 != null && corner2 != null && corner1.getWorld() != null
                 && corner1.getWorld().equals(corner2.getWorld())) {
-            // Calculate boundary based on incoming direction
+            // Calculate boundary - spawn on the ENTRANCE side (opposite of launchYaw)
             double minX = Math.min(corner1.getX(), corner2.getX());
             double maxX = Math.max(corner1.getX(), corner2.getX());
             double minZ = Math.min(corner1.getZ(), corner2.getZ());
             double maxZ = Math.max(corner1.getZ(), corner2.getZ());
 
-            // Find entry point on boundary
+            // Find entry point on boundary - spawn on the side OPPOSITE to launchDir
             double boundaryOffset = 3.0; // Spawn 3 blocks outside boundary
             Location entryPoint = stopPoint.clone();
 
-            if (Math.abs(direction.getX()) > Math.abs(direction.getZ())) {
-                // Entering from X direction
-                if (direction.getX() > 0) {
+            // If launchDir points +X, train enters from -X side (minX)
+            // If launchDir points -X, train enters from +X side (maxX)
+            if (Math.abs(launchDir.getX()) > Math.abs(launchDir.getZ())) {
+                if (launchDir.getX() > 0) {
+                    // Outgoing is +X, so entrance is -X side
                     entryPoint.setX(minX - boundaryOffset);
                 } else {
+                    // Outgoing is -X, so entrance is +X side
                     entryPoint.setX(maxX + boundaryOffset);
                 }
             } else {
-                // Entering from Z direction
-                if (direction.getZ() > 0) {
+                if (launchDir.getZ() > 0) {
+                    // Outgoing is +Z, so entrance is -Z side
                     entryPoint.setZ(minZ - boundaryOffset);
                 } else {
+                    // Outgoing is -Z, so entrance is +Z side
                     entryPoint.setZ(maxZ + boundaryOffset);
                 }
             }
@@ -518,45 +557,35 @@ public class LineService {
             return findNearestRail(entryPoint, plugin.getLocalRailSearchRadius() + 3);
         }
 
-        // No boundaries defined, spawn some distance back
+        // No boundaries defined, spawn some distance back on ENTRANCE side
+        // Entrance side = OPPOSITE of launchDir
         double distanceBack = 20.0;
-        Location approxEntry = stopPoint.clone().subtract(direction.multiply(distanceBack));
+        Location approxEntry = stopPoint.clone().subtract(launchDir.multiply(distanceBack));
         return findNearestRail(approxEntry, plugin.getLocalRailSearchRadius());
     }
 
+    /**
+     * Get yaw for travel between stops - uses ONLY launchYaw, never position.
+     */
     private float computeYawBetweenStops(List<String> stops, int fromIndex, int toIndex) {
-        if (fromIndex < 0 || fromIndex >= stops.size() || toIndex < 0 || toIndex >= stops.size()) {
+        if (fromIndex < 0 || fromIndex >= stops.size()) {
             return 0f;
         }
         Stop fromStop = plugin.getStopManager().getStop(stops.get(fromIndex));
-        Stop toStop = plugin.getStopManager().getStop(stops.get(toIndex));
-        if (fromStop == null || toStop == null)
-            return fromStop != null ? fromStop.getLaunchYaw() : 0f;
-
-        Location from = fromStop.getStopPointLocation();
-        Location to = toStop.getStopPointLocation();
-        if (from == null || to == null)
-            return fromStop.getLaunchYaw();
-
-        Vector dir = to.toVector().subtract(from.toVector());
-        dir.setY(0);
-        if (dir.lengthSquared() < 1e-6)
-            return fromStop.getLaunchYaw();
-
-        return (float) Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ()));
+        return fromStop != null ? fromStop.getLaunchYaw() : 0f;
     }
 
+    /**
+     * Get yaw for traveling TOWARDS a stop - uses opposite of stop's launchYaw.
+     * (launchYaw is outgoing, so incoming = -launchYaw)
+     */
     private float computeYawTowardsStop(Location from, String toStopId) {
         Stop toStop = plugin.getStopManager().getStop(toStopId);
-        if (toStop == null || toStop.getStopPointLocation() == null || from == null)
+        if (toStop == null) {
             return 0f;
-
-        Vector dir = toStop.getStopPointLocation().toVector().subtract(from.toVector());
-        dir.setY(0);
-        if (dir.lengthSquared() < 1e-6)
-            return toStop.getLaunchYaw();
-
-        return (float) Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ()));
+        }
+        // Incoming train moves in the launchYaw direction
+        return toStop.getLaunchYaw();
     }
 
     private Location findNearestRail(Location center, int radius) {
@@ -613,8 +642,11 @@ public class LineService {
             }
 
             Minecart cart = spawnLoc.getWorld().spawn(spawnLoc, Minecart.class, minecart -> {
-                minecart.setCustomName("RailwayTrain");
-                minecart.setCustomNameVisible(false);
+                String customName = plugin.getConfig().getString("settings.train.name", "RailwayTrain");
+                boolean nameVisible = plugin.getConfig().getBoolean("settings.train.name_visible", false);
+
+                minecart.setCustomName(customName);
+                minecart.setCustomNameVisible(nameVisible);
                 minecart.setSlowWhenEmpty(false);
                 minecart.setMaxSpeed(maxSpeed);
                 minecart.setGravity(false);

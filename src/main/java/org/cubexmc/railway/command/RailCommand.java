@@ -64,6 +64,13 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 language.loadLanguages();
                 sender.sendMessage(language.getMessage("plugin.reload"));
                 return true;
+            case "gui":
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage(language.getMessage("plugin.players_only"));
+                    return true;
+                }
+                plugin.getGuiManager().openMainMenu(player);
+                return true;
             case "line":
                 return handleLine(sender, args);
             case "stop":
@@ -73,54 +80,62 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
         }
     }
-    
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) return partial(Arrays.asList("reload", "line", "stop"), args[0]);
+        if (args.length == 1)
+            return partial(Arrays.asList("reload", "line", "stop", "gui"), args[0]);
 
-    if (args[0].equalsIgnoreCase("line")) {
-        if (args.length == 2) return partial(Arrays.asList(
-            "create","delete","list","info","status","stops","control",
-                    "add-stop","remove-stop",
-                    "set-name","set-color","service","set-headway","set-dwell",
-                    "set-train-cars","set-owner","add-admin","remove-admin","set-terminus","set-maxspeed"), args[1]);
+        if (args[0].equalsIgnoreCase("line")) {
+            if (args.length == 2)
+                return partial(Arrays.asList(
+                        "create", "delete", "list", "info", "status", "stops", "control",
+                        "addstop", "delstop",
+                        "rename", "setcolor", "service", "setheadway", "setdwell",
+                        "settraincars", "setowner", "trust", "untrust", "setterminus", "setmaxspeed"),
+                        args[1]);
 
             LineManager lm = plugin.getLineManager();
             List<String> lineIds = new ArrayList<>();
-            for (Line l : lm.getAllLines()) lineIds.add(l.getId());
+            for (Line l : lm.getAllLines())
+                lineIds.add(l.getId());
             StopManager sm = plugin.getStopManager();
             List<String> stopIds = new ArrayList<>(sm.getAllStopIds());
 
             String sub = normalizeLineSubcommand(args[1]);
             switch (sub) {
                 case "delete":
-                case "set-name":
-                case "set-color":
+                case "rename":
+                case "setcolor":
                 case "service":
-                case "set-headway":
-                case "set-dwell":
-                case "set-train-cars":
-                case "add-stop":
-                case "remove-stop":
-                case "set-owner":
-                case "add-admin":
-                case "remove-admin":
-                case "set-terminus":
-                case "set-maxspeed":
+                case "setheadway":
+                case "setdwell":
+                case "settraincars":
+                case "addstop":
+                case "delstop":
+                case "setowner":
+                case "trust":
+                case "untrust":
+                case "setterminus":
+                case "setmaxspeed":
                 case "status":
                 case "info":
-                    if (args.length == 3) return partial(lineIds, args[2]);
+                    if (args.length == 3)
+                        return partial(lineIds, args[2]);
                     break;
                 case "stops":
-                    if (args.length == 3) return partial(lineIds, args[2]);
+                    if (args.length == 3)
+                        return partial(lineIds, args[2]);
                     break;
                 case "control":
-                    if (args.length == 3) return partial(lineIds, args[2]);
-                    if (args.length == 4) return partial(Arrays.asList("kinematic","leashed","reactive"), args[3]);
+                    if (args.length == 3)
+                        return partial(lineIds, args[2]);
+                    if (args.length == 4)
+                        return partial(Arrays.asList("kinematic", "leashed", "reactive"), args[3]);
                     break;
             }
 
-            if (sub.equals("add-stop")) {
+            if (sub.equals("addstop")) {
                 if (args.length == 4) {
                     return partial(stopIds, args[3]);
                 } else if (args.length == 5) {
@@ -129,12 +144,13 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                     int size = line != null ? line.getOrderedStopIds().size() : 0;
                     List<String> indices = new ArrayList<>();
                     indices.add("-1");
-                    for (int i = 0; i <= size; i++) indices.add(String.valueOf(i));
+                    for (int i = 0; i <= size; i++)
+                        indices.add(String.valueOf(i));
                     return partial(indices, args[4]);
                 }
             }
 
-            if (sub.equals("remove-stop")) {
+            if (sub.equals("delstop")) {
                 if (args.length == 4) {
                     Line line = lm.getLine(args[2]);
                     List<String> lineStops = line != null ? line.getOrderedStopIds() : Collections.emptyList();
@@ -142,62 +158,73 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 }
             }
 
-            if (sub.equals("set-color") && args.length == 4) {
-                return partial(Arrays.asList("&0","&1","&2","&3","&4","&5","&6","&7","&8","&9","&a","&b","&c","&d","&e","&f","&l","&n","&o","&r"), args[3]);
+            if (sub.equals("setcolor") && args.length == 4) {
+                return partial(Arrays.asList("&0", "&1", "&2", "&3", "&4", "&5", "&6", "&7", "&8", "&9", "&a", "&b",
+                        "&c", "&d", "&e", "&f", "&l", "&n", "&o", "&r"), args[3]);
             }
 
             if (sub.equals("service") && args.length == 4) {
-                return partial(Arrays.asList("enable","disable"), args[3]);
+                return partial(Arrays.asList("enable", "disable"), args[3]);
             }
 
-            if (sub.equals("set-headway") && args.length == 4) {
-                return partial(Arrays.asList("30","60","90","120","180"), args[3]);
+            if (sub.equals("setheadway") && args.length == 4) {
+                return partial(Arrays.asList("30", "60", "90", "120", "180"), args[3]);
             }
-            if (sub.equals("set-dwell") && args.length == 4) {
-                return partial(Arrays.asList("60","80","100","120","160"), args[3]);
+            if (sub.equals("setdwell") && args.length == 4) {
+                return partial(Arrays.asList("60", "80", "100", "120", "160"), args[3]);
             }
-            if (sub.equals("set-train-cars") && args.length == 4) {
-                return partial(Arrays.asList("1","2","3","4","5","6","7","8"), args[3]);
+            if (sub.equals("settraincars") && args.length == 4) {
+                return partial(Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8"), args[3]);
             }
 
             return Collections.emptyList();
         }
 
-    if (args[0].equalsIgnoreCase("stop")) {
-        if (args.length == 2) return partial(Arrays.asList(
-            "create","delete","list","info","set-name","set-corners",
-                    "set-point","set-owner","add-admin","remove-admin",
-                    "allow-line","deny-line","add-transfer","remove-transfer","set-title","remove-title"), args[1]);
+        if (args[0].equalsIgnoreCase("stop")) {
+            if (args.length == 2)
+                return partial(Arrays.asList(
+                        "create", "delete", "list", "info", "rename", "setcorners",
+                        "setpoint", "setowner", "trust", "untrust",
+                        "allowline", "denyline", "addtransfer", "deltransfer", "settitle", "deltitle", "tp"),
+                        args[1]);
             StopManager sm = plugin.getStopManager();
             List<String> stopIds = new ArrayList<>(sm.getAllStopIds());
             String sub = normalizeStopSubcommand(args[1]);
             switch (sub) {
                 case "delete":
-                case "set-name":
-                case "set-corners":
-                case "set-point":
-                case "set-owner":
-                case "add-admin":
-                case "remove-admin":
-                case "allow-line":
-                case "deny-line":
-                case "add-transfer":
-                case "remove-transfer":
-                case "set-title":
-                case "remove-title":
+                case "rename":
+                case "setcorners":
+                case "setpoint":
+                case "setowner":
+                case "trust":
+                case "untrust":
+                case "allowline":
+                case "denyline":
+                case "addtransfer":
+                case "deltransfer":
+                case "settitle":
+                case "deltitle":
                 case "info":
-                    if (args.length == 3) return partial(stopIds, args[2]);
+                case "tp":
+                    if (args.length == 3)
+                        return partial(stopIds, args[2]);
                     break;
             }
-            if ((sub.equals("allow-line") || sub.equals("deny-line") || sub.equals("add-transfer") || sub.equals("remove-transfer")) && args.length == 4) {
+            if ((sub.equals("allowline") || sub.equals("denyline") || sub.equals("addtransfer")
+                    || sub.equals("deltransfer")) && args.length == 4) {
                 // suggest line ids
                 List<String> lineIds = new ArrayList<>();
-                for (Line l : plugin.getLineManager().getAllLines()) lineIds.add(l.getId());
+                for (Line l : plugin.getLineManager().getAllLines())
+                    lineIds.add(l.getId());
                 return partial(lineIds, args[3]);
             }
-            if ((sub.equals("set-title") || sub.equals("remove-title")) && args.length >= 4) {
-                if (args.length == 4) return partial(Arrays.asList("stop_continuous","arrive_stop","terminal_stop","departure","waiting"), args[3]);
-                if (sub.equals("set-title") && args.length == 5) return partial(Arrays.asList("title","subtitle","actionbar"), args[4]);
+            if ((sub.equals("settitle") || sub.equals("deltitle")) && args.length >= 4) {
+                if (args.length == 4)
+                    return partial(
+                            Arrays.asList("stop_continuous", "arrive_stop", "terminal_stop", "departure", "waiting"),
+                            args[3]);
+                if (sub.equals("settitle") && args.length == 5)
+                    return partial(Arrays.asList("title", "subtitle", "actionbar"), args[4]);
             }
             return Collections.emptyList();
         }
@@ -293,7 +320,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
         if (location == null || location.getWorld() == null) {
             return language.getMessage("stop.info_not_set");
         }
-    return String.format(Locale.US, "%s (%d, %d, %d) yaw=%.1f",
+        return String.format(Locale.US, "%s (%d, %d, %d) yaw=%.1f",
                 location.getWorld().getName(),
                 location.getBlockX(),
                 location.getBlockY(),
@@ -348,9 +375,10 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 "owner", ownerName,
                 "line_id", line.getId()));
     }
-    
+
     private String normalizeLineSubcommand(String raw) {
-        if (raw == null) return "";
+        if (raw == null)
+            return "";
         return raw.toLowerCase().replace('_', '-');
     }
 
@@ -361,9 +389,11 @@ public class RailCommand implements CommandExecutor, TabCompleter {
             int totalTrains = 0;
             for (String id : plugin.getLineManager().getAllLineIds()) {
                 Line line = plugin.getLineManager().getLine(id);
-                if (line == null) continue;
+                if (line == null)
+                    continue;
                 LineService service = manager.getService(id);
-                if (service == null || !line.isServiceEnabled()) continue;
+                if (service == null || !line.isServiceEnabled())
+                    continue;
                 List<TrainInstance> trains = service.getActiveTrains();
                 totalTrains += trains.size();
                 String color = ChatColor.translateAlternateColorCodes('&', line.getColor());
@@ -414,7 +444,8 @@ public class RailCommand implements CommandExecutor, TabCompleter {
     }
 
     private String normalizeStopSubcommand(String raw) {
-        if (raw == null) return "";
+        if (raw == null)
+            return "";
         return raw.toLowerCase().replace('_', '-');
     }
 
@@ -424,13 +455,13 @@ public class RailCommand implements CommandExecutor, TabCompleter {
         send(sender, "command.help_stop");
         send(sender, "command.help_reload");
     }
-    
+
     private void sendLineHelp(CommandSender sender) {
         send(sender, "line.help_header");
         send(sender, "line.help_create");
         send(sender, "line.help_delete");
         send(sender, "line.help_list");
-    send(sender, "line.help_info");
+        send(sender, "line.help_info");
         send(sender, "line.help_status");
         send(sender, "line.help_setname");
         send(sender, "line.help_setcolor");
@@ -446,15 +477,15 @@ public class RailCommand implements CommandExecutor, TabCompleter {
         send(sender, "line.help_add_admin");
         send(sender, "line.help_remove_admin");
     }
-    
+
     private void sendStopHelp(CommandSender sender) {
         send(sender, "stop.help_header");
         send(sender, "stop.help_create");
         send(sender, "stop.help_delete");
         send(sender, "stop.help_list");
-    send(sender, "stop.help_info");
+        send(sender, "stop.help_info");
         send(sender, "stop.help_setname");
-        send(sender, "stop.help_setcorners");
+        send(sender, "stop.help_setcorners", args("tool", getToolDisplayName()));
         send(sender, "stop.help_setpoint");
         send(sender, "stop.help_allow_line");
         send(sender, "stop.help_deny_line");
@@ -491,7 +522,8 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 List<String> ordered = line.getOrderedStopIds();
-                sender.sendMessage(ChatColor.AQUA + "Stops for line " + ChatColor.WHITE + line.getName() + ChatColor.GRAY + " (" + lineId + "):");
+                sender.sendMessage(ChatColor.AQUA + "Stops for line " + ChatColor.WHITE + line.getName()
+                        + ChatColor.GRAY + " (" + lineId + "):");
                 if (ordered == null || ordered.isEmpty()) {
                     sender.sendMessage(ChatColor.GRAY + "  (no stops configured)");
                     return true;
@@ -501,7 +533,8 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                     Stop s = sm.getStop(sid);
                     String display = s != null ? s.getName() : sid;
                     boolean hasPoint = s != null && s.getStopPointLocation() != null;
-                    sender.sendMessage(ChatColor.YELLOW + "  " + i + ". " + ChatColor.GREEN + display + ChatColor.DARK_GRAY + " [" + sid + "]" + (hasPoint ? "" : ChatColor.RED + " *no point"));
+                    sender.sendMessage(ChatColor.YELLOW + "  " + i + ". " + ChatColor.GREEN + display
+                            + ChatColor.DARK_GRAY + " [" + sid + "]" + (hasPoint ? "" : ChatColor.RED + " *no point"));
                     i++;
                 }
                 return true;
@@ -524,7 +557,8 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 String normalized = mode.toUpperCase(Locale.ROOT);
-                if (!normalized.equals("KINEMATIC") && !normalized.equals("LEASHED") && !normalized.equals("REACTIVE")) {
+                if (!normalized.equals("KINEMATIC") && !normalized.equals("LEASHED")
+                        && !normalized.equals("REACTIVE")) {
                     send(sender, "line.control_invalid_mode", args("mode", mode));
                     return true;
                 }
@@ -592,7 +626,8 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 send(sender, "line.list_header");
                 for (Line line : lines) {
                     String status = language.getMessage(line.isServiceEnabled()
-                            ? "line.list_status_enabled" : "line.list_status_disabled");
+                            ? "line.list_status_enabled"
+                            : "line.list_status_disabled");
                     String color = ChatColor.translateAlternateColorCodes('&', line.getColor());
                     send(sender, "line.list_item", args(
                             "status", status,
@@ -667,7 +702,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return showLineStatus(sender, target);
             }
 
-            case "set-name": {
+            case "rename": {
                 if (args.length < 4) {
                     send(sender, "line.usage_setname");
                     return true;
@@ -692,7 +727,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-color": {
+            case "setcolor": {
                 if (args.length < 4) {
                     send(sender, "line.usage_setcolor");
                     return true;
@@ -752,8 +787,18 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 }
 
                 boolean ok = lm.addStopToLine(lineId, stopId, index);
-                send(sender, ok ? "line.addstop_success" : "line.addstop_fail",
-                        args("line_id", lineId, "stop_id", stopId));
+                if (ok) {
+                    send(sender, "line.addstop_success", args("line_id", lineId, "stop_id", stopId));
+                    if (line.isServiceEnabled()) {
+                        LineService service = serviceManager.getService(lineId);
+                        if (service != null && !service.isGlobalMode()) {
+                            service.refreshStops();
+                            sender.sendMessage(ChatColor.GRAY + "Topology refreshed for active service.");
+                        }
+                    }
+                } else {
+                    send(sender, "line.addstop_fail", args("line_id", lineId, "stop_id", stopId));
+                }
                 return true;
             }
 
@@ -776,8 +821,18 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 }
 
                 boolean ok = lm.delStopFromLine(lineId, stopId);
-                send(sender, ok ? "line.delstop_success" : "line.delstop_fail",
-                        args("line_id", lineId, "stop_id", stopId));
+                if (ok) {
+                    send(sender, "line.delstop_success", args("line_id", lineId, "stop_id", stopId));
+                    if (line.isServiceEnabled()) {
+                        LineService service = serviceManager.getService(lineId);
+                        if (service != null && !service.isGlobalMode()) {
+                            service.refreshStops();
+                            sender.sendMessage(ChatColor.GRAY + "Topology refreshed for active service.");
+                        }
+                    }
+                } else {
+                    send(sender, "line.delstop_fail", args("line_id", lineId, "stop_id", stopId));
+                }
                 return true;
             }
 
@@ -814,21 +869,12 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-headway": {
+            case "setheadway": {
                 if (args.length < 4) {
                     send(sender, "line.usage_set_headway");
                     return true;
                 }
                 String lineId = args[2];
-                Line line = lm.getLine(lineId);
-                if (line == null) {
-                    send(sender, "line.not_found", args("line_id", lineId));
-                    return true;
-                }
-                if (!OwnershipUtil.canManageLine(sender, line)) {
-                    sendLinePermissionDenied(sender, line);
-                    return true;
-                }
                 int seconds;
                 try {
                     seconds = Integer.parseInt(args[3]);
@@ -839,7 +885,8 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 boolean ok = lm.setHeadway(lineId, seconds);
                 if (ok) {
                     LineService service = serviceManager.getService(lineId);
-                    if (service != null) service.setHeadwaySeconds(seconds);
+                    if (service != null)
+                        service.setHeadwaySeconds(seconds);
                     send(sender, "line.set_headway_success", args("line_id", lineId, "headway", seconds));
                 } else {
                     send(sender, "line.not_found", args("line_id", lineId));
@@ -847,21 +894,12 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-dwell": {
+            case "setdwell": {
                 if (args.length < 4) {
                     send(sender, "line.usage_set_dwell");
                     return true;
                 }
                 String lineId = args[2];
-                Line line = lm.getLine(lineId);
-                if (line == null) {
-                    send(sender, "line.not_found", args("line_id", lineId));
-                    return true;
-                }
-                if (!OwnershipUtil.canManageLine(sender, line)) {
-                    sendLinePermissionDenied(sender, line);
-                    return true;
-                }
                 int ticks;
                 try {
                     ticks = Integer.parseInt(args[3]);
@@ -872,7 +910,8 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 boolean ok = lm.setDwell(lineId, ticks);
                 if (ok) {
                     LineService service = serviceManager.getService(lineId);
-                    if (service != null) service.setDwellTicks(ticks);
+                    if (service != null)
+                        service.setDwellTicks(ticks);
                     send(sender, "line.set_dwell_success", args("line_id", lineId, "dwell", ticks));
                 } else {
                     send(sender, "line.not_found", args("line_id", lineId));
@@ -880,21 +919,12 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-train-cars": {
+            case "settraincars": {
                 if (args.length < 4) {
                     send(sender, "line.usage_set_train_cars");
                     return true;
                 }
                 String lineId = args[2];
-                Line line = lm.getLine(lineId);
-                if (line == null) {
-                    send(sender, "line.not_found", args("line_id", lineId));
-                    return true;
-                }
-                if (!OwnershipUtil.canManageLine(sender, line)) {
-                    sendLinePermissionDenied(sender, line);
-                    return true;
-                }
                 int cars;
                 try {
                     cars = Integer.parseInt(args[3]);
@@ -902,10 +932,15 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                     send(sender, "line.set_train_cars_invalid");
                     return true;
                 }
+                if (cars < 1 || cars > 10) {
+                    send(sender, "line.invalid_cars_range");
+                    return true;
+                }
                 boolean ok = lm.setTrainCars(lineId, cars);
                 if (ok) {
                     LineService service = serviceManager.getService(lineId);
-                    if (service != null) service.setTrainCars(cars);
+                    if (service != null)
+                        service.setTrainCars(cars);
                     send(sender, "line.set_train_cars_success", args("line_id", lineId, "cars", cars));
                 } else {
                     send(sender, "line.not_found", args("line_id", lineId));
@@ -913,7 +948,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-terminus": {
+            case "setterminus": {
                 if (args.length < 4) {
                     send(sender, "line.usage_set_terminus");
                     return true;
@@ -938,7 +973,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-maxspeed": {
+            case "setmaxspeed": {
                 if (args.length < 4) {
                     send(sender, "line.usage_set_maxspeed");
                     return true;
@@ -964,14 +999,16 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 boolean ok = lm.setLineMaxSpeed(lineId, maxSpeed);
                 if (ok) {
                     send(sender, "line.set_maxspeed_success",
-                            args("line_id", lineId, "speed", maxSpeed == null ? language.getMessage("line.maxspeed_unlimited") : String.valueOf(value)));
+                            args("line_id", lineId, "speed",
+                                    maxSpeed == null ? language.getMessage("line.maxspeed_unlimited")
+                                            : String.valueOf(value)));
                 } else {
                     send(sender, "line.not_found", args("line_id", lineId));
                 }
                 return true;
             }
 
-            case "set-owner": {
+            case "setowner": {
                 if (args.length < 4) {
                     send(sender, "line.usage_set_owner");
                     return true;
@@ -997,7 +1034,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "add-admin": {
+            case "trust": {
                 if (args.length < 4) {
                     send(sender, "line.usage_add_admin");
                     return true;
@@ -1023,7 +1060,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "remove-admin": {
+            case "untrust": {
                 if (args.length < 4) {
                     send(sender, "line.usage_remove_admin");
                     return true;
@@ -1127,9 +1164,12 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 send(sender, "stop.list_header");
                 for (String stopId : sm.getAllStopIds()) {
                     Stop stop = sm.getStop(stopId);
-                    if (stop == null) continue;
-                    boolean configured = stop.getCorner1() != null && stop.getCorner2() != null && stop.getStopPointLocation() != null;
-                    String status = language.getMessage(configured ? "stop.list_status_configured" : "stop.list_status_missing");
+                    if (stop == null)
+                        continue;
+                    boolean configured = stop.getCorner1() != null && stop.getCorner2() != null
+                            && stop.getStopPointLocation() != null;
+                    String status = language
+                            .getMessage(configured ? "stop.list_status_configured" : "stop.list_status_missing");
                     int lineCount = stop.getLinkedLineIds() != null ? stop.getLinkedLineIds().size() : 0;
                     send(sender, "stop.list_item", args(
                             "status", status,
@@ -1186,7 +1226,50 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-name": {
+            case "tp": {
+                if (!(sender instanceof Player player)) {
+                    send(sender, "plugin.players_only");
+                    return true;
+                }
+                if (args.length < 3) {
+                    send(sender, "stop.usage_tp");
+                    return true;
+                }
+                String stopId = args[2];
+                Stop stop = sm.getStop(stopId);
+                if (stop == null) {
+                    send(player, "stop.not_found", args("stop_id", stopId));
+                    return true;
+                }
+                // Try to teleport to stop point first, then corners center
+                Location target = stop.getStopPointLocation();
+                if (target == null) {
+                    // Calculate center of corners
+                    Location c1 = stop.getCorner1();
+                    Location c2 = stop.getCorner2();
+                    if (c1 != null && c2 != null) {
+                        target = new Location(c1.getWorld(),
+                                (c1.getX() + c2.getX()) / 2.0,
+                                c1.getY() + 1, // slightly above
+                                (c1.getZ() + c2.getZ()) / 2.0);
+                    } else if (c1 != null) {
+                        target = c1.clone().add(0, 1, 0);
+                    } else if (c2 != null) {
+                        target = c2.clone().add(0, 1, 0);
+                    }
+                }
+
+                if (target == null) {
+                    send(player, "stop.tp_no_location", args("stop_id", stopId));
+                    return true;
+                }
+
+                player.teleport(target);
+                send(player, "stop.tp_success", args("stop_id", stopId));
+                return true;
+            }
+
+            case "rename": {
                 if (args.length < 4) {
                     send(sender, "stop.usage_setname");
                     return true;
@@ -1208,9 +1291,9 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-corners": {
+            case "setcorners": {
                 if (args.length < 3) {
-                    send(sender, "stop.usage_setcorners");
+                    send(sender, "stop.usage_setcorners", args("tool", getToolDisplayName()));
                     return true;
                 }
                 if (!(sender instanceof Player player)) {
@@ -1218,7 +1301,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 if (!selections.isSelectionComplete(player.getUniqueId())) {
-                    send(player, "stop.setcorners_need_selection");
+                    send(player, "stop.setcorners_need_selection", args("tool", getToolDisplayName()));
                     return true;
                 }
                 String stopId = args[2];
@@ -1238,7 +1321,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-point": {
+            case "setpoint": {
                 if (!(sender instanceof Player player)) {
                     send(sender, "plugin.players_only");
                     return true;
@@ -1292,7 +1375,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-owner": {
+            case "setowner": {
                 if (args.length < 4) {
                     send(sender, "stop.usage_set_owner");
                     return true;
@@ -1318,7 +1401,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "add-admin": {
+            case "trust": {
                 if (args.length < 4) {
                     send(sender, "stop.usage_add_admin");
                     return true;
@@ -1344,7 +1427,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "remove-admin": {
+            case "untrust": {
                 if (args.length < 4) {
                     send(sender, "stop.usage_remove_admin");
                     return true;
@@ -1370,7 +1453,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "allow-line": {
+            case "allowline": {
                 if (args.length < 4) {
                     send(sender, "stop.usage_allow_line");
                     return true;
@@ -1397,7 +1480,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "deny-line": {
+            case "denyline": {
                 if (args.length < 4) {
                     send(sender, "stop.usage_deny_line");
                     return true;
@@ -1424,7 +1507,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "add-transfer": {
+            case "addtransfer": {
                 if (args.length < 4) {
                     send(sender, "stop.usage_add_transfer");
                     return true;
@@ -1451,7 +1534,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "remove-transfer": {
+            case "deltransfer": {
                 if (args.length < 4) {
                     send(sender, "stop.usage_remove_transfer");
                     return true;
@@ -1473,7 +1556,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "set-title": {
+            case "settitle": {
                 if (args.length < 6) {
                     send(sender, "stop.usage_set_title");
                     return true;
@@ -1496,7 +1579,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "remove-title": {
+            case "deltitle": {
                 if (args.length < 4) {
                     send(sender, "stop.usage_remove_title");
                     return true;
@@ -1522,6 +1605,28 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
         }
     }
+
+    private String getToolDisplayName() {
+        String materialName = plugin.getConfig().getString("settings.selection.tool", "GOLDEN_HOE");
+        try {
+            org.bukkit.Material mat = org.bukkit.Material.valueOf(materialName.toUpperCase());
+            // Convert "GOLDEN_HOE" to "Golden Hoe"
+            StringBuilder pretty = new StringBuilder();
+            boolean capitalize = true;
+            for (char c : mat.name().replace('_', ' ').toCharArray()) {
+                if (capitalize) {
+                    pretty.append(Character.toUpperCase(c));
+                    capitalize = false;
+                } else {
+                    pretty.append(Character.toLowerCase(c));
+                }
+                if (c == ' ') {
+                    capitalize = true;
+                }
+            }
+            return pretty.toString();
+        } catch (Exception e) {
+            return materialName;
+        }
+    }
 }
-
-

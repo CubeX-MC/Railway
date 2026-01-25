@@ -196,8 +196,8 @@ public class TrainInstance {
                 break;
         }
 
-        // Update chunk loading (global mode only)
-        if (service.isGlobalMode() && service.getPlugin().isChunkLoadingEnabled()) {
+        // Update chunk loading (Global mode OR occupied Local mode)
+        if (service.getPlugin().isChunkLoadingEnabled()) {
             updateChunkLoading(currentTick);
         }
     }
@@ -266,15 +266,17 @@ public class TrainInstance {
         }
         this.sectionKey = section;
 
-        travelDirection = service.computeTravelDirection(fromStop, toStop);
-        if (travelDirection == null) {
-            travelDirection = LocationUtil.vectorFromYaw(fromStop.getLaunchYaw());
+        // Determine initial boost direction
+        // Always use the stop's launchYaw, as tracks can curve or loop.
+        // Direct station-to-station vector is unreliable for complex geometry.
+        Vector boostDir = LocationUtil.vectorFromYaw(fromStop.getLaunchYaw());
+        if (boostDir == null || boostDir.lengthSquared() < 1e-6) {
+            // Fallback if yaw is somehow invalid (should not happen if set correctly)
+            boostDir = new Vector(0, 0, 1);
         }
-        if (travelDirection == null || travelDirection.lengthSquared() == 0) {
-            travelDirection = new Vector(0, 0, 0);
-        } else {
-            travelDirection = travelDirection.normalize();
-        }
+
+        // Update travelDirection for physics usage
+        travelDirection = boostDir.normalize();
 
         applyInitialBoost(travelDirection);
         physicsEngine.onDeparture(this, fromStop);
@@ -396,6 +398,15 @@ public class TrainInstance {
         physicsEngine.tick(this, timeFraction, -1L);
     }
 
+    private boolean hasAnyPassengers() {
+        for (Minecart cart : consist.getCars()) {
+            if (!cart.getPassengers().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void maybeVirtualize(long currentTick) {
         if (service.isGlobalMode()) {
             idleVirtualTicks = 0L;
@@ -408,7 +419,8 @@ public class TrainInstance {
             return;
         }
 
-        if (hasPassengers()) {
+        // Prevent virtualization if ANY entity is on board (not just players)
+        if (hasAnyPassengers()) {
             idleVirtualTicks = 0L;
             return;
         }
@@ -786,6 +798,15 @@ public class TrainInstance {
         }
         lastChunkUpdateTick = currentTick;
 
+        // Enable chunk loading if Global Mode OR if we have passengers (even in Local
+        // Mode)
+        // This ensures entities can travel autonomously without unloading
+        boolean shouldLoad = service.isGlobalMode() || hasAnyPassengers();
+
+        if (!shouldLoad || !service.getPlugin().isChunkLoadingEnabled()) {
+            return;
+        }
+
         if (plugin.isChunkLoadingOnlyWhenMoving() && state != TrainState.MOVING) {
             // Not moving: optionally release all
             releaseAllForcedChunks();
@@ -935,25 +956,32 @@ public class TrainInstance {
      * Force the train into MOVING state treating it as arriving at targetIndex.
      */
     public void forceArrivingState(int targetIndex, long currentTick) {
+        forceArrivingState(targetIndex, currentTick, null);
+    }
+
+    /**
+     * Force the train into MOVING state with explicit direction.
+     */
+    public void forceArrivingState(int targetIndex, long currentTick, Vector explicitDirection) {
         this.targetIndex = Math.max(0, Math.min(targetIndex, stopIds.size() - 1));
         this.currentIndex = this.targetIndex; // For ETA calculation, assume we are in the segment ending at target
         this.state = TrainState.MOVING;
         this.stateSinceTick = currentTick;
         this.readyToDepart = false;
 
-        // Calculate travel direction towards the stop
-        Stop stop = service.getStopManager().getStop(stopIds.get(this.targetIndex));
-        if (stop != null) {
-            // Use opposite of launch yaw to simulate arriving? Or just point to stop?
-            // Since we are physically outside, we should point to the stop center.
-            this.travelDirection = LocationUtil.vectorFromYaw(stop.getLaunchYaw()); // Assuming standard entry
-            if (consist.getLeadCar() != null) {
-                Vector toStop = stop.getStopPointLocation().toVector()
-                        .subtract(consist.getLeadCar().getLocation().toVector());
-                if (toStop.lengthSquared() > 0.01) {
-                    this.travelDirection = toStop.normalize();
-                }
+        // Calculate travel direction
+        if (explicitDirection != null && explicitDirection.lengthSquared() > 1e-6) {
+            this.travelDirection = explicitDirection.clone().normalize();
+        } else {
+            // Fallback to launchYaw if no explicit direction provided
+            Stop stop = service.getStopManager().getStop(stopIds.get(this.targetIndex));
+            if (stop != null) {
+                this.travelDirection = LocationUtil.vectorFromYaw(stop.getLaunchYaw());
             }
+        }
+
+        if (this.travelDirection == null || this.travelDirection.lengthSquared() < 1e-6) {
+            this.travelDirection = new Vector(0, 0, 1);
         }
 
         // Initial velocity to start moving

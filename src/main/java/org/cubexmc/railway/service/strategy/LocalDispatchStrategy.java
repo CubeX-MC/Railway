@@ -181,7 +181,7 @@ public class LocalDispatchStrategy implements DispatchStrategy {
 
         service.getPlugin().getLogger().info(
                 "[LocalDispatch] Initialized pool for line " + service.getLineId() +
-                        " with " + pool.getActiveCount() + " virtual trains");
+                        " with " + pool.getActiveCount(line.getOrderedStopIds()) + " virtual trains");
     }
 
     private Stop findPlayerOccupiedStop(LineService service) {
@@ -246,12 +246,27 @@ public class LocalDispatchStrategy implements DispatchStrategy {
         if (vtId == null)
             return;
 
+        Line line = train.getService().getLine();
+        if (line == null)
+            return;
+        List<String> stopIds = line.getOrderedStopIds();
+
         TrainInstance.VirtualizationState state = train.getVirtualizationState(currentTick);
         pool.returnToVirtual(vtId, state.currentIndex, state.targetIndex,
-                state.progress, state.isWaiting, currentTick);
+                state.progress, state.isWaiting, currentTick, stopIds);
     }
 
     public VirtualTrainPool getPool() {
         return pool;
+    }
+
+    @Override
+    public void refreshTopology(LineService service, List<String> newStopIds, long currentTick) {
+        if (pool == null)
+            return;
+
+        Railway plugin = service.getPlugin();
+        pool.refreshTopology(newStopIds, plugin.getTravelTimeEstimator(), currentTick);
+        plugin.getLogger().info("[LocalDispatch] Refreshed topology: " + newStopIds.size() + " stops");
     }
 }

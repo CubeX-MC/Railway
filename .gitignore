@@ -1,5 +1,7 @@
 # User requested exclusion
 TrainCarts/
+Metro/
+target/
 
 # Standard Maven
 target/

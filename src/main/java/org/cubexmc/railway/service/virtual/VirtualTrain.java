@@ -31,9 +31,9 @@ public class VirtualTrain {
 
     private final UUID id;
     private final String lineId;
-    private final List<String> stopIds;
+    private List<String> stopIds;
     private final int dwellTicks;
-    private final boolean isLoop;
+    private boolean isLoop;
 
     // DES State
     private long lastEventTick;
@@ -59,9 +59,10 @@ public class VirtualTrain {
             int initialStopIndex, double initialProgress, long initialTick) {
         this.id = UUID.randomUUID();
         this.lineId = lineId;
-        this.stopIds = stopIds;
+        this.stopIds = new java.util.ArrayList<>(stopIds);
         this.dwellTicks = Math.max(20, dwellTicks);
-        this.isLoop = stopIds.size() >= 2 && stopIds.get(0).equals(stopIds.get(stopIds.size() - 1));
+        this.isLoop = stopIds.size() >= 2 &&
+                stopIds.get(0).equals(stopIds.get(stopIds.size() - 1));
 
         this.currentStopIndex = Math.max(0, Math.min(initialStopIndex, stopIds.size() - 1));
 
@@ -119,16 +120,9 @@ public class VirtualTrain {
         }
     }
 
-    public String getCurrentStopId() {
+    public String getCurrentStopId(List<String> stopIds) {
         if (currentStopIndex >= 0 && currentStopIndex < stopIds.size()) {
             return stopIds.get(currentStopIndex);
-        }
-        return null;
-    }
-
-    public String getTargetStopId() {
-        if (targetStopIndex >= 0 && targetStopIndex < stopIds.size()) {
-            return stopIds.get(targetStopIndex);
         }
         return null;
     }
@@ -136,7 +130,8 @@ public class VirtualTrain {
     /**
      * Update the train state to a specific event.
      */
-    public void onEvent(EventType type, int stopIndex, long eventTick, double nextDurationSeconds) {
+    public void onEvent(EventType type, int stopIndex, long eventTick, double nextDurationSeconds,
+            List<String> stopIds) {
         this.lastEventType = type;
         this.currentStopIndex = stopIndex;
         this.lastEventTick = eventTick;
@@ -151,6 +146,9 @@ public class VirtualTrain {
             // Now moving to next station
             // Determine target
             int next = stopIndex + 1;
+
+            boolean isLoop = stopIds.size() >= 2 && stopIds.get(0).equals(stopIds.get(stopIds.size() - 1));
+
             if (next >= stopIds.size()) {
                 if (isLoop) {
                     next = 1; // 0 is same as N-1 in loop def usually, but let's stick to standard next
@@ -280,35 +278,43 @@ public class VirtualTrain {
     }
 
     private double sumTravelTime(int fromIndex, int toIndex, TravelTimeEstimator estimator) {
-        if (fromIndex == toIndex)
-            return 0.0;
+        // Simple iteration handling loop
+        double sum = 0;
+        int current = fromIndex;
+        int safety = 0;
 
-        double sum = 0.0;
-        int i = fromIndex;
-        int n = stopIds.size();
+        while (current != toIndex && safety < stopIds.size() * 2) {
+            if (current >= stopIds.size() - 1) {
+                if (!isLoop)
+                    break; // End of line
+                // Loop
+                // current = stopIds.size()-1 (Last).
+                // Next is 1 (Standard cycle A->...->A->B is not right, usually A...A, next is
+                // A->B which is 0->1)
+                // If last stop is same as first stop (A), then we are at A. The next stop is B
+                // (index 1).
 
-        while (i != toIndex) {
-            int next = i + 1;
-            if (next >= n) {
-                if (isLoop) {
-                    next = 1; // Skip duplicate first/last
-                } else {
-                    return Double.POSITIVE_INFINITY; // Can't reach
-                }
+                // wait, if stops are [A, B, C, A].
+                // 0->1 (A->B), 1->2 (B->C), 2->3 (C->A).
+                // At 3 (A), we are effectively at 0.
+                // Next is 1.
+                current = 0;
+                // Don't add travel time for wrap-around as it's the same spatial point
             }
 
-            String fid = stopIds.get(i);
-            String tid = stopIds.get(next);
-            sum += estimator.estimateSeconds(lineId, fid, tid);
-            sum += dwellTicks / 20.0; // Add dwell time at intermediate stops
+            int next = current + 1;
+            if (next >= stopIds.size())
+                break; // Should be handled above
 
-            i = next;
-            if (i == fromIndex) {
-                // Looped around without finding target
-                return Double.POSITIVE_INFINITY;
-            }
+            String fromId = stopIds.get(current);
+            String toId = stopIds.get(next);
+
+            sum += (dwellTicks / 20.0);
+            sum += estimator.estimateSeconds(lineId, fromId, toId);
+
+            current = next;
+            safety++;
         }
-
         return sum;
     }
 
@@ -319,10 +325,13 @@ public class VirtualTrain {
      * @param stopManager Stop manager to look up stop locations
      * @return Estimated location, or null if cannot be determined
      */
-    public Location estimateCurrentLocation(StopManager stopManager) {
+    public Location estimateCurrentLocation(StopManager stopManager, List<String> stopIds) {
         if (lastEventType == EventType.ARRIVAL) {
-            Stop stop = stopManager.getStop(stopIds.get(currentStopIndex));
-            return stop != null ? stop.getStopPointLocation() : null;
+            if (currentStopIndex < stopIds.size()) {
+                Stop stop = stopManager.getStop(stopIds.get(currentStopIndex));
+                return stop != null ? stop.getStopPointLocation() : null;
+            }
+            return null;
         }
 
         // Moving: interpolate between current and target stops
@@ -403,7 +412,7 @@ public class VirtualTrain {
      * @param currentTick Current tick
      */
     public void restoreState(int stopIndex, int targetIndex, double progress,
-            boolean isWaiting, long currentTick) {
+            boolean isWaiting, long currentTick, List<String> stopIds) {
         this.currentStopIndex = Math.max(0, Math.min(stopIndex, stopIds.size() - 1));
         this.lastEventTick = currentTick;
         this.currentPathDurationSeconds = 10.0; // Default buffer
@@ -425,10 +434,159 @@ public class VirtualTrain {
      * Check if this virtual train has reached terminal and cannot proceed.
      * Only applies to non-loop lines.
      */
-    public boolean isAtTerminal() {
+    /**
+     * Check if the train is at terminal
+     */
+    public boolean isAtTerminal(List<String> stopIds) {
+        boolean isLoop = stopIds.size() >= 2 && stopIds.get(0).equals(stopIds.get(stopIds.size() - 1));
         if (isLoop)
             return false;
         return lastEventType == EventType.ARRIVAL && currentStopIndex >= stopIds.size() - 1;
+    }
+
+    /**
+     * Tries to synchronize the train's logical position to a new topology.
+     * 
+     * @param oldStopIds  The previous list of stop IDs
+     * @param newStopIds  The new list of stop IDs
+     * @param estimator   TravelTimeEstimator to recalculate progress
+     * @param currentTick Current server tick
+     */
+    public void syncToNewTopology(List<String> oldStopIds, List<String> newStopIds,
+            TravelTimeEstimator estimator, long currentTick) {
+        // 1. Identify where we are logically
+        String currentStopId = null;
+        if (currentStopIndex >= 0 && currentStopIndex < oldStopIds.size()) {
+            currentStopId = oldStopIds.get(currentStopIndex);
+        }
+
+        String targetStopId = null;
+        if (targetStopIndex >= 0 && targetStopIndex < oldStopIds.size()) {
+            targetStopId = oldStopIds.get(targetStopIndex);
+        }
+
+        // 2. Map 'currentStopId' to new list
+        int newCurrentIndex = -1;
+        if (currentStopId != null) {
+            // Find closest match or exact match
+            newCurrentIndex = newStopIds.indexOf(currentStopId);
+        }
+
+        // If current stop was deleted, fallback to index? Or 0?
+        if (newCurrentIndex == -1) {
+            newCurrentIndex = Math.max(0, Math.min(currentStopIndex, newStopIds.size() - 1));
+            // Reset state to waiting at this fallback stop
+            onEvent(EventType.ARRIVAL, newCurrentIndex, currentTick, 0, newStopIds);
+            return;
+        }
+
+        // Update cache
+        this.stopIds = new java.util.ArrayList<>(newStopIds);
+        this.isLoop = stopIds.size() >= 2 && stopIds.get(0).equals(stopIds.get(stopIds.size() - 1));
+
+        // 3. Handle based on event type
+        if (lastEventType == EventType.ARRIVAL) {
+            // We were waiting at currentStop.
+            // Just update index.
+            this.currentStopIndex = newCurrentIndex;
+            // Target remains -1
+            this.targetStopIndex = -1;
+            // nextEventTick (DEPARTURE) remains valid usually, unless we want to force
+            // re-calc?
+            // It's just Time, so it's fine.
+        } else {
+            // We were moving from currentStop to targetStop
+            // Map targetStop
+            int newTargetIndex = -1;
+            if (targetStopId != null) {
+                newTargetIndex = newStopIds.indexOf(targetStopId);
+            }
+
+            this.currentStopIndex = newCurrentIndex;
+
+            // If target is gone or changed
+            if (newTargetIndex == -1) {
+                // Target deleted.
+                // Just target the next stop in new list from current?
+                newTargetIndex = newCurrentIndex + 1;
+                if (newTargetIndex >= newStopIds.size()) {
+                    // Wrap or terminal
+                    boolean isLoop = newStopIds.size() >= 2
+                            && newStopIds.get(0).equals(newStopIds.get(newStopIds.size() - 1));
+                    if (isLoop)
+                        newTargetIndex = 1;
+                    else
+                        newTargetIndex = 0; // Turnaround?
+                }
+
+                // We need to re-estimate arrival time because segment changed
+                String fromId = newStopIds.get(newCurrentIndex);
+                String toId = newStopIds.get(newTargetIndex);
+                double newDuration = estimator.estimateSeconds(lineId, fromId, toId);
+
+                // Update event
+                // We preserve 'elapsed' time?
+                long elapsed = currentTick - lastEventTick;
+                double elapsedSec = elapsed / 20.0;
+                // New arrival = current + (newTotal - elapsed)
+                // But wait, if elapsed > newTotal? We arrive immediately.
+                double remaining = Math.max(0.5, newDuration - elapsedSec); // min 0.5s
+
+                onEvent(EventType.DEPARTURE, newCurrentIndex, lastEventTick, newDuration, newStopIds);
+                this.nextEventTick = currentTick + (long) (remaining * 20.0);
+                this.targetStopIndex = newTargetIndex;
+
+            } else {
+                // Both Current and Target exist.
+                // Check if any NEW stops inserted between them?
+                // current in new: A (idx 5)
+                // target in new: B (idx 7)
+                // There is a stop C (idx 6) inserted!
+
+                if (newTargetIndex > newCurrentIndex + 1) {
+                    // There are stops in between!
+                    // We must decide if we target C (6) or B (7).
+                    // Depends on progress.
+
+                    // Simple approach: Always target the IMMEDIATE next stop in new topology (C).
+                    int interimTarget = newCurrentIndex + 1;
+                    String interimId = newStopIds.get(interimTarget);
+
+                    // Recalculate duration A->C
+                    String fromId = newStopIds.get(newCurrentIndex);
+                    double durationAC = estimator.estimateSeconds(lineId, fromId, interimId);
+
+                    // How much have we traveled?
+                    long elapsed = currentTick - lastEventTick;
+                    double elapsedSec = elapsed / 20.0;
+
+                    if (elapsedSec >= durationAC) {
+                        // We technically passed C already.
+                        // Teleport/Advance to C, depart from C to B?
+                        // "Arrive" at C now?
+                        // Let's set state: DEPARTURE from C, target B (or next interim).
+                        // Effectively skipping dwell at C? Or forcing dwell?
+                        // Desimulation simplification: Treat as departing C just now.
+
+                        onEvent(EventType.DEPARTURE, interimTarget, currentTick,
+                                estimator.estimateSeconds(lineId, interimId, newStopIds.get(interimTarget + 1)),
+                                newStopIds);
+                        // target is next next.. logic handles in onEvent partially but we need to
+                        // verify target
+                    } else {
+                        // We are still before C. Retarget to C.
+                        // Maintain start tick (A), but duration is now A->C.
+                        onEvent(EventType.DEPARTURE, newCurrentIndex, lastEventTick, durationAC, newStopIds);
+                        // Update next arrival
+                        this.nextEventTick = lastEventTick + (long) (durationAC * 20.0);
+                        this.targetStopIndex = interimTarget;
+                    }
+                } else {
+                    // Adjacent. Just update indices.
+                    this.targetStopIndex = newTargetIndex;
+                }
+            }
+        }
     }
 
     @Override

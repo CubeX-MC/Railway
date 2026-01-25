@@ -5,6 +5,7 @@ org\cubexmc\railway\Metrics$JsonObjectBuilder$JsonObject.class
 org\cubexmc\railway\service\virtual\SpawnMode.class
 org\cubexmc\railway\manager\SelectionManager.class
 org\cubexmc\railway\service\strategy\LocalDispatchStrategy.class
+org\cubexmc\railway\service\virtual\VirtualTrain$EventType.class
 org\cubexmc\railway\estimation\TravelTimeEstimator.class
 org\cubexmc\railway\model\Line.class
 org\cubexmc\railway\util\IntVector3.class
@@ -14,8 +15,10 @@ org\cubexmc\railway\physics\RailPathUtil.class
 org\cubexmc\railway\train\TrainInstance$TrainState.class
 org\cubexmc\railway\Metrics$MetricsBase.class
 org\cubexmc\railway\physics\ReactiveRailPhysics.class
+org\cubexmc\railway\gui\GuiListener$1.class
 org\cubexmc\railway\manager\LanguageManager.class
 org\cubexmc\railway\Metrics.class
+org\cubexmc\railway\gui\GuiHolder$GuiType.class
 org\cubexmc\railway\listener\PlayerInteractListener.class
 org\cubexmc\railway\service\LineServiceManager.class
 org\cubexmc\railway\Metrics$SingleLineChart.class
@@ -33,6 +36,7 @@ org\cubexmc\railway\service\virtual\VirtualTrainPool.class
 org\cubexmc\railway\util\SchedulerUtil.class
 org\cubexmc\railway\Metrics$MultiLineChart.class
 org\cubexmc\railway\physics\LeashCoupler.class
+org\cubexmc\railway\gui\ItemBuilder.class
 org\cubexmc\railway\command\RailCommand.class
 org\cubexmc\railway\placeholder\RailwayPlaceholders.class
 org\cubexmc\railway\physics\TrainPhysicsEngine.class
@@ -41,6 +45,7 @@ org\cubexmc\railway\util\MinecartNmsUtil.class
 org\cubexmc\railway\service\BlockSectionManager.class
 org\cubexmc\railway\control\TrainControlMode.class
 org\cubexmc\railway\physics\KinematicRailPhysics$TrailPoint.class
+org\cubexmc\railway\gui\GuiHolder.class
 org\cubexmc\railway\manager\LineManager.class
 org\cubexmc\railway\util\FaceUtil.class
 org\cubexmc\railway\service\virtual\VirtualTrain.class
@@ -52,7 +57,9 @@ org\cubexmc\railway\physics\TrainCartsBridge.class
 org\cubexmc\railway\listener\VehicleListener.class
 org\cubexmc\railway\Metrics$DrilldownPie.class
 org\cubexmc\railway\service\virtual\VirtualTrain$State.class
+org\cubexmc\railway\gui\GuiManager.class
 org\cubexmc\railway\util\AdventureUtil.class
+org\cubexmc\railway\gui\GuiListener.class
 org\cubexmc\railway\service\LineService$1.class
 org\cubexmc\railway\service\LineServiceManager$1.class
 org\cubexmc\railway\update\LanguageUpdater.class
@@ -65,6 +72,7 @@ org\cubexmc\railway\util\MathUtil.class
 org\cubexmc\railway\listener\PlayerMoveListener.class
 org\cubexmc\railway\Metrics$AdvancedBarChart.class
 org\cubexmc\railway\util\TextUtil.class
+org\cubexmc\railway\service\virtual\VirtualTrainPool$TrainEvent.class
 org\cubexmc\railway\service\OperationMode.class
 org\cubexmc\railway\util\Quaternion.class
 org\cubexmc\railway\update\ConfigUpdater.class

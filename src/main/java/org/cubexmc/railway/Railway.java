@@ -38,6 +38,7 @@ public final class Railway extends JavaPlugin {
     private StopManager stopManager;
     private SelectionManager selectionManager;
     private TravelTimeEstimator travelTimeEstimator;
+    private org.cubexmc.railway.gui.GuiManager guiManager;
 
     @Override
     public void onEnable() {
@@ -55,6 +56,9 @@ public final class Railway extends JavaPlugin {
         this.travelTimeEstimator = new TravelTimeEstimator(this);
         this.travelTimeEstimator.load();
 
+        // Initialize GUI Manager
+        this.guiManager = new org.cubexmc.railway.gui.GuiManager(this);
+
         // Initialize scoreboard manager
         org.cubexmc.railway.train.ScoreboardManager.initialize(this);
         purgeResidualMinecarts();
@@ -66,10 +70,11 @@ public final class Railway extends JavaPlugin {
             getCommand("rail").setTabCompleter(railCommand);
         }
 
-        // Listeners (UI only; no spawn here)
+        // Listeners
         Bukkit.getPluginManager().registerEvents(new PlayerInteractListener(this), this);
         Bukkit.getPluginManager().registerEvents(new PlayerMoveListener(this), this);
         Bukkit.getPluginManager().registerEvents(new VehicleListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new org.cubexmc.railway.gui.GuiListener(this), this);
 
         // PlaceholderAPI hook (optional)
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -97,6 +102,10 @@ public final class Railway extends JavaPlugin {
             travelTimeEstimator.save();
         }
         getLogger().info("Railway disabled");
+    }
+
+    public org.cubexmc.railway.gui.GuiManager getGuiManager() {
+        return guiManager;
     }
 
     public LineServiceManager getLineServiceManager() {
