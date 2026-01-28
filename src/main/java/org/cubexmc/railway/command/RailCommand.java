@@ -751,7 +751,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "add-stop": {
+            case "addstop": {
                 if (args.length < 4) {
                     send(sender, "line.usage_addstop");
                     return true;
@@ -802,7 +802,7 @@ public class RailCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            case "remove-stop": {
+            case "delstop": {
                 if (args.length < 4) {
                     send(sender, "line.usage_delstop");
                     return true;

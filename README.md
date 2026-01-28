@@ -141,6 +141,7 @@ red:
 **基础命令**
 - `/rail` - 显示主帮助菜单
 - `/rail reload` - 重载配置和数据，并重建线路服务
+- `/rail gui` - 打开全服线路 GUI 面板
 - `/rail line status [lineId]` - 查看全局或指定线路的运行状态
 - `/rail line list` - 列出所有线路简况
 - `/rail stop list` - 列出所有站点配置状态
@@ -152,37 +153,38 @@ red:
 - `/rail line list` - 列出所有线路
 - `/rail line stops <id>` - 列出线路的所有站点（含停靠点配置状态）
 - `/rail line control <id> <kinematic|leashed|reactive>` - 设置线路的列车控制模式
-- `/rail line set-name <id> <name>` - 设置线路名称
-- `/rail line set-color <id> <&code>` - 设置线路颜色（如 `&c` 红色）
-- `/rail line add-stop <id> <stopId> [index]` - 添加站点到线路
-- `/rail line remove-stop <id> <stopId>` - 从线路移除站点
+- `/rail line rename <id> <name>` - 设置线路名称
+- `/rail line setcolor <id> <&code>` - 设置线路颜色（如 `&c` 红色）
+- `/rail line addstop <id> <stopId> [index]` - 添加站点到线路
+- `/rail line delstop <id> <stopId>` - 从线路移除站点
 - `/rail line service <id> <enable|disable>` - 启用/停用线路服务
-- `/rail line set-headway <id> <seconds>` - 设置发车间隔
-- `/rail line set-dwell <id> <ticks>` - 设置停站时间
-- `/rail line set-train-cars <id> <count>` - 设置列车编组数
-- `/rail line set-terminus <id> <name>` - 设置终点站名称
-- `/rail line set-maxspeed <id> <speed>` - 设置最大速度
-- `/rail line set-owner <id> <uuid>` - 设置线路所有者
-- `/rail line add-admin <id> <uuid>` - 添加管理员
-- `/rail line remove-admin <id> <uuid>` - 移除管理员
+- `/rail line setheadway <id> <seconds>` - 设置发车间隔
+- `/rail line setdwell <id> <ticks>` - 设置停站时间
+- `/rail line settraincars <id> <count>` - 设置列车编组数
+- `/rail line setterminus <id> <name>` - 设置终点站名称
+- `/rail line setmaxspeed <id> <speed>` - 设置最大速度
+- `/rail line setowner <id> <uuid>` - 设置线路所有者
+- `/rail line trust <id> <uuid>` - 添加管理员
+- `/rail line untrust <id> <uuid>` - 移除管理员
 
 **站点管理** (`/rail stop`)
 - `/rail stop` - 显示站点管理帮助
 - `/rail stop create <id> [name]` - 创建新站点
 - `/rail stop delete <id>` - 删除站点
 - `/rail stop list` - 列出所有站点
-- `/rail stop set-name <id> <name>` - 设置站点名称
-- `/rail stop set-corners <id>` - 设置站点区域（使用金锄头选择两个角）
-- `/rail stop set-point [id] [yaw]` - 设置当前位置为停靠点（可省略 id 自动匹配，支持自定义朝向）
-- `/rail stop allow-line <id> <lineId>` - 允许线路经过此站点
-- `/rail stop deny-line <id> <lineId>` - 禁止线路经过此站点
-- `/rail stop add-transfer <id> <lineId>` - 添加换乘线路
-- `/rail stop remove-transfer <id> <lineId>` - 移除换乘线路
-- `/rail stop set-title <id> <type> <field> <value>` - 设置自定义标题
-- `/rail stop remove-title <id> <type>` - 移除自定义标题
-- `/rail stop set-owner <id> <uuid>` - 设置站点所有者
-- `/rail stop add-admin <id> <uuid>` - 添加管理员
-- `/rail stop remove-admin <id> <uuid>` - 移除管理员
+- `/rail stop tp <id>` - 传送至指定站点
+- `/rail stop rename <id> <name>` - 设置站点名称
+- `/rail stop setcorners <id>` - 设置站点区域（使用金锄头选择两个角）
+- `/rail stop setpoint [id] [yaw]` - 设置当前位置为停靠点（可省略 id 自动匹配，支持自定义朝向）
+- `/rail stop allowline <id> <lineId>` - 允许线路经过此站点
+- `/rail stop denyline <id> <lineId>` - 禁止线路经过此站点
+- `/rail stop addtransfer <id> <lineId>` - 添加换乘线路
+- `/rail stop deltransfer <id> <lineId>` - 移除换乘线路
+- `/rail stop settitle <id> <type> <field> <value>` - 设置自定义标题
+- `/rail stop deltitle <id> <type>` - 移除自定义标题
+- `/rail stop setowner <id> <uuid>` - 设置站点所有者
+- `/rail stop trust <id> <uuid>` - 添加管理员
+- `/rail stop untrust <id> <uuid>` - 移除管理员
 
 所有命令均支持 Tab 自动补全。
 
@@ -191,8 +193,10 @@ red:
 **权限节点**
 - `railway.admin` - 使用所有管理命令（默认：OP）
 - `railway.use` - 使用插件基础功能（乘坐列车等，默认：所有玩家）
+- `railway.line.create` - 允许玩家创建新线路（默认：false）
+- `railway.stop.create` - 允许玩家创建新站点（默认：false）
 
-线路和站点支持所有者 (owner) 与管理员 (admin) 系统，可通过 `set-owner`、`add-admin`、`remove-admin` 命令管理权限。OP 与拥有 `railway.admin` 权限的玩家可绕过所有权检查。
+线路和站点支持所有者 (owner) 与管理员 (admin) 系统，可通过 `setowner`、`trust`、`untrust` 命令管理权限。OP 与拥有 `railway.admin` 权限的玩家可绕过所有权检查。
 
 ### 运行模式
 - **local**（默认）："虚拟时刻表 + 就近实体化"，仅在玩家附近生成列车实体，兼顾沉浸与性能。支持虚拟化回收（无需求时自动清理列车）。
@@ -204,6 +208,14 @@ red:
 - **leashed**（牵引绳）：通过拴绳生物实现视觉连接，轻量控制，可与 TrainCarts 等插件互操作。适合展示和兼容性场景。
 
 所有控制模式均支持线路限速（`max_speed`）、弯道/坡道安全限速、载客严格同步等特性。
+
+### Metro 迁移指南
+Railway 直接兼容 Metro 的数据文件。迁移步骤：
+1. 安装 Railway 插件
+2. 删除 `Metro/config.yml` (推荐使用 Railway 生成的新配置)
+3. 复制 `Metro/lines.yml` 和 `Metro/stops.yml` 到 `Railway/` 目录
+4. 重启服务器
+5. 使用 `/rail line list` 确认线路已加载
 
 ### Folia 兼容说明
 尚未测试

@@ -42,7 +42,7 @@ settings:
   control:
     # Default control mode for trains: kinematic | leashed | reactive
     # 全局默认控制模式：kinematic（运动学/强控），leashed（拴绳视觉+轻控制），reactive（原版风格间距控制）
-    default_mode: kinematic
+    default_mode: reactive
     leash:
       # Leash dummy mob type (must be leashable), e.g. ALLAY, FOX, WOLF
       # 拴绳端点生物类型（需可被拴绳）
@@ -64,6 +64,14 @@ settings:
   # 站点区域选择使用的工具（默认金锄头，可设为任意物品 ID）
   selection:
     tool: GOLDEN_HOE
+  
+  interact:
+    # Display type for rail ETA: ACTIONBAR, TITLE, SUBTITLE
+    # 铁路 ETA 显示方式：ACTIONBAR, TITLE, SUBTITLE
+    type: SUBTITLE
+    # Display duration in ticks (only for TITLE/SUBTITLE)
+    # 显示时长（tick），仅对 TITLE/SUBTITLE 生效
+    stay_ticks: 60
   
   # Global mode chunk loading strategy
   # 全局模式下的区块保持加载策略
@@ -177,63 +185,73 @@ titles:
     # Always display title inside stop area (true = continuous, false = one-time)
     # 是否在站台内持续显示标题（true 时无闪烁，false 为进入一次性提示）
     always: true
-    # 普通站标题模板
-    title: "&b{stop_name}"
-    subtitle: "开往 &d{terminus_name} &f| 下一站: &e{next_stop_name} | 换乘: &a{stop_transfers} | 下一换乘: &6{next_stop_transfers}"
-    actionbar: "停站期间可进入任意车厢乘坐 {line_color_code}{line} &f列车"
-    # 始发站特殊模板
+    # 普通站点
+    # Normal station
+    title: '&b{stop_name}'
+    subtitle: '&d➔ {terminus_name} &8| &e» {next_stop_name} &8| &a⇄ {stop_transfers}'
+    actionbar: '&fRight-click rail to board &7[&r{line_color_code}{line}&7]'
+    # 始发站特殊显示
+    # Special display for starting station
     start_stop:
-      title: "&b{stop_name}"
-      subtitle: "开往 &d{terminus_name} &f| 始发站 | 换乘: &a{stop_transfers}"
-      actionbar: "停站期间可进入任意车厢乘坐 {line_color_code}{line} &f列车"
-    # 终点站特殊模板
+      title: '&b{stop_name}'
+      subtitle: '&d➔ {terminus_name} &8| &fOrigin &8| &a⇄ {stop_transfers}'
+      actionbar: '&fRight-click rail to board &7[&r{line_color_code}{line}&7]'
+    # 终点站特殊显示
+    # Special display for terminal station
     end_stop:
-      title: "&b{stop_name}"
-      subtitle: "本列车终到 &d{stop_name} &f| &e终点站 | 换乘: &a{stop_transfers}"
-      actionbar: "本列车已到达终点站，请所有乘客下车"
-    # always=false 时生效的 Title 淡入淡出参数
+      title: '&b{stop_name}'
+      subtitle: '&c🛑 Terminal Station &8| &a⇄ {stop_transfers}'
+      actionbar: '&cEnd of line. Please allow passengers to exit.'
+    # The following options are effective only when always=false
+    # 以下选项仅在 always=false 时生效
     fade_in: 10
     stay: 40
     fade_out: 10
   
-  # 车上乘客到站提示
+  # 到达站台时显示的title
+  # Title displayed upon arrival at the station
   arrive_stop:
     enabled: true
-    title: "&b{stop_name} &f已到站"
-    subtitle: "开往 &d{terminus_name} &f| 下一站: &e{next_stop_name} | 换乘: &a{stop_transfers} | 下一换乘: &6{next_stop_transfers}"
+    title: '&b{stop_name}'
+    subtitle: '&7Next: &e{next_stop_name} &8| &a⇄ {stop_transfers}'
     fade_in: 10
     stay: 40
     fade_out: 10
-    
-  # 终点站到站提示
+  
+  # 终点站显示
+  # Terminal station display
   terminal_stop:
     enabled: true
-    title: "&b{stop_name}"
-    subtitle: "&c终点站 - 请乘客下车 | 换乘: &a{stop_transfers}"
+    title: '&b{stop_name}'
+    subtitle: '&c🛑 Terminal &8| &a⇄ {stop_transfers}'
     fade_in: 10
     stay: 60
     fade_out: 10
-    
-  # 列车行进过程中周期更新的行程信息
+  
+  # 乘客上车后行程信息
+  # Trip information after passenger boards
   departure:
     enabled: true
-    # 刷新间隔（tick）
+    # Refresh interval in ticks
+    # 刷新间隔，单位tick
     interval: 40
-    title: "下一站 &e{next_stop_name}"
-    subtitle: "开往 &d{terminus_name} &f| 下一换乘: &6{next_stop_transfers}"
-    actionbar: "列车正在运行，请抓紧扶手"
+    title: '&e» {next_stop_name}'
+    subtitle: '&d➔ {terminus_name}'
+    actionbar: '&7Departing... Please stand clear of the doors.'
     fade_in: 5
     stay: 40
     fade_out: 5
-
-  # 列车等待发车期间的提示（倒计时等）
+  
+  # 乘客等待发车时的信息
+  # Information while passenger is waiting for departure
   waiting:
     enabled: true
-    # 刷新间隔（tick）
+    # Refresh interval in ticks
+    # 刷新间隔，单位tick
     interval: 20
-    title: "列车即将发车"
-    subtitle: "当前站: &a{stop_name} | 下一站: &e{next_stop_name}"
-    actionbar: "列车将在 &c{countdown} &f秒后发车"
+    title: '&fDeparting Soon'
+    subtitle: '&7Current: &a{stop_name} &8| &7Next: &e{next_stop_name}'
+    actionbar: '&e⚠ Departing in &c{countdown}s'
 
 # 音效配置
 sounds:
