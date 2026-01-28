@@ -95,8 +95,6 @@ public class LocalDispatchStrategy implements DispatchStrategy {
             // It must be in WAITING state at the exact stop index
             if (vt.getState() == VirtualTrain.State.WAITING && vt.getCurrentStopIndex() == demandIndex) {
                 // Virtual train has arrived! Materialize it.
-                plugin.getLogger().info("[LocalDispatch] Virtual train " +
-                        vt.getId().toString().substring(0, 8) + " arrived at " + currentDemandStopId);
 
                 if (materializeTrain(service, vt, currentDemandStopId, demandIndex, stops, currentTick)) {
                     lastSpawnTick = currentTick;
@@ -163,8 +161,7 @@ public class LocalDispatchStrategy implements DispatchStrategy {
                 // Just clear the materialized flag - virtual train continues from its current
                 // position
                 pool.clearMaterialized(vt.getId());
-                service.getPlugin().getLogger().info(
-                        "[LocalDispatch] Cleared materialization for " + vt.getId().toString().substring(0, 8));
+
             }
         }
     }
@@ -179,9 +176,6 @@ public class LocalDispatchStrategy implements DispatchStrategy {
         pool.initialize(line, service.getHeadwaySeconds(),
                 service.getPlugin().getTravelTimeEstimator(), currentTick);
 
-        service.getPlugin().getLogger().info(
-                "[LocalDispatch] Initialized pool for line " + service.getLineId() +
-                        " with " + pool.getActiveCount(line.getOrderedStopIds()) + " virtual trains");
     }
 
     private Stop findPlayerOccupiedStop(LineService service) {
@@ -227,7 +221,8 @@ public class LocalDispatchStrategy implements DispatchStrategy {
 
         if (train != null) {
             pool.markMaterialized(vt.getId());
-            plugin.getLogger().info("[LocalDispatch] Train materialized at " + targetStopId);
+            // plugin.getLogger().info("[LocalDispatch] Train materialized at " +
+            // targetStopId);
             return true;
         } else {
             plugin.getLogger().warning("[LocalDispatch] Failed to spawn train at " + targetStopId);
@@ -267,6 +262,6 @@ public class LocalDispatchStrategy implements DispatchStrategy {
 
         Railway plugin = service.getPlugin();
         pool.refreshTopology(newStopIds, plugin.getTravelTimeEstimator(), currentTick);
-        plugin.getLogger().info("[LocalDispatch] Refreshed topology: " + newStopIds.size() + " stops");
+
     }
 }

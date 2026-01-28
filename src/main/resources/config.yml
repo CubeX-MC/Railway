@@ -1,14 +1,5 @@
 # Railway default configuration
 
-# 调试与日志设置
-debug:
-  # 启用详细的列车物理调试日志（包括脱轨恢复、轨道类型检测、速度调整）
-  # Enable detailed train physics debug logging (derailment recovery, rail type detection, speed adjustment)
-  train_physics: false
-  # 启用编组间距调试日志（输出每节车厢的间距和速度变化）
-  # Enable consist spacing debug logging (output spacing and velocity changes for each car)
-  consist_spacing: false
-
 # 语言设置
 service:
   # Run mode of services; local = virtual timetable with on-demand materialization; global = always-on trains
@@ -111,7 +102,7 @@ settings:
   local:
     # Players within this radius (blocks) around a stop will trigger spawn
     # 触发实体化的玩家距离站点半径（单位: 格）
-    activation_radius: 96
+    activation_radius: 16
     # Lead time so that the train tries to arrive after this many ticks when demand detected
     # 目标到站提前量：列车会尝试在此 tick 数后抵达玩家所在站
     spawn_lead_ticks: 120
@@ -143,7 +134,7 @@ settings:
       #                        在目标站台边界外生成（列车看起来正在进站）
       #   - current_stop: Spawn directly at the target stop (instant but less realistic)
       #                   直接在玩家所在站生成（即时但不真实）
-      spawn_mode: current_stop
+      spawn_mode: platform_boundary
       # Maximum ETA (seconds) for a virtual train to be materialized
       # 虚拟列车被实例化的最大 ETA（秒）
       max_materialize_eta_seconds: 60
@@ -195,7 +186,7 @@ titles:
     start_stop:
       title: '&b{stop_name}'
       subtitle: '&d➔ {terminus_name} &8| &fOrigin &8| &a⇄ {stop_transfers}'
-      actionbar: '&fRight-click rail to board &7[&r{line_color_code}{line}&7]'
+      actionbar: '&fRight-click rail to check schedule'
     # 终点站特殊显示
     # Special display for terminal station
     end_stop:

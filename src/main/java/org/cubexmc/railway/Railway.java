@@ -470,13 +470,6 @@ public final class Railway extends JavaPlugin {
     }
 
     // Debug configuration getters
-    public boolean isDebugTrainPhysics() {
-        return getConfig().getBoolean("debug.train_physics", false);
-    }
-
-    public boolean isDebugConsistSpacing() {
-        return getConfig().getBoolean("debug.consist_spacing", false);
-    }
 
     // Safe speed mode getter
     public boolean isSafeSpeedMode() {

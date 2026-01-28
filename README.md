@@ -1,5 +1,8 @@
 ## Railway 插件
 
+[English](README_en.md) | 简体中文<br>
+[Discord](https://discord.com/invite/7tJeSZPZgv) | [QQ频道](https://pd.qq.com/s/1n3hpe4e7?b=9)
+
 Railway 是基于 [Metro](https://github.com/CubeX-MC/Metro) 的 Minecraft 列车运营插件。在原有站台管理基础上引入**固定发车间隔（Headway）**、**多车编组（Train Consist）**和**自动化调度**系统，让玩家体验真实的进站、停靠、发车流程。
 
 ### 核心特性
@@ -17,13 +20,6 @@ Railway 是基于 [Metro](https://github.com/CubeX-MC/Metro) 的 Minecraft 列�
 默认配置位于 `config.yml`，后续将扩展 `lines.yml` 以支持每线 service.* 字段。
 
 #### 核心配置项
-
-**调试选项 (debug)**
-```yaml
-debug:
-  train_physics: false        # 列车物理调试日志（脱轨恢复、轨道检测、速度调整）
-  consist_spacing: false      # 编组间距调试日志（输出每节车厢的间距和速度）
-```
 
 **服务配置 (service)**
 ```yaml
