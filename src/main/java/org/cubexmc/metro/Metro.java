@@ -508,4 +508,6 @@ public final class Metro extends JavaPlugin {
     public int getServiceHeartbeatIntervalTicks() { return getConfig().getInt("service-heartbeat-interval-ticks", 2); }
 
     public org.cubexmc.metro.service.LineServiceManager getLineServiceManager() { return null; }
+
+    public org.cubexmc.metro.model.EntityModelController getEntityModelController() { return null; }
 }
