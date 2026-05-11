@@ -12,6 +12,7 @@ softdepend:
   - BlueMap
   - dynmap
   - squaremap
+  - PlaceholderAPI
 
 
 permissions:

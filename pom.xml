@@ -52,6 +52,10 @@
             <id>dynmap-repo</id>
             <url>https://repo.mikeprimm.com/</url>
         </repository>
+        <repository>
+            <id>placeholderapi</id>
+            <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -93,6 +97,13 @@
             <artifactId>mockito-junit-jupiter</artifactId>
             <version>5.18.0</version>
             <scope>test</scope>
+        </dependency>
+        <!-- PlaceholderAPI (optional soft dependency) -->
+        <dependency>
+            <groupId>me.clip</groupId>
+            <artifactId>placeholderapi</artifactId>
+            <version>2.11.6</version>
+            <scope>provided</scope>
         </dependency>
         <!-- Packet-level virtual scoreboard, folia-supported -->
         <dependency>

@@ -506,4 +506,6 @@ public final class Metro extends JavaPlugin {
     public double getCartSpeed() { return getConfig().getDouble("cart-speed", 0.4); }
     public double getTrainSpacing() { return getConfig().getDouble("train-spacing", 3.0); }
     public int getServiceHeartbeatIntervalTicks() { return getConfig().getInt("service-heartbeat-interval-ticks", 2); }
+
+    public org.cubexmc.metro.service.LineServiceManager getLineServiceManager() { return null; }
 }
