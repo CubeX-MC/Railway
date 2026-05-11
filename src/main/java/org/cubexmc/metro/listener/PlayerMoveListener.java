@@ -50,7 +50,7 @@ public class PlayerMoveListener implements Listener {
         }
 
         Player player = event.getPlayer();
-        if (!player.hasPermission("railway.use")) {
+        if (!player.hasPermission("Metro.use")) {
             return;
         }
 
