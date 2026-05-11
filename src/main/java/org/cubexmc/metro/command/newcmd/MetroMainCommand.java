@@ -76,6 +76,13 @@ public class MetroMainCommand {
         }
         plugin.getLanguageManager().loadLanguages();
 
+        if (plugin.getLineServiceManager() != null) {
+            plugin.getLineServiceManager().shutdown();
+        }
+        if (plugin.getEntityModelController() != null) {
+            plugin.getEntityModelController().reload();
+        }
+
         plugin.refreshMapIntegrations();
 
         sender.sendMessage(plugin.getLanguageManager().getMessage("plugin.reload"));

@@ -659,8 +659,9 @@ public class LineCommand {
         if (line == null) return;
         line.setHeadwaySeconds(Math.max(10, seconds));
         line.setServiceEnabled(true);
-        plugin.getLanguageManager();
-        player.sendMessage("§aLine " + line.getName() + " headway set to " + line.getHeadwaySeconds() + "s, service enabled.");
+        player.sendMessage(plugin.getLanguageManager().getMessage("line.setheadway_success",
+                LanguageManager.put(LanguageManager.put(LanguageManager.args(),
+                        "line_name", line.getName()), "seconds", String.valueOf(line.getHeadwaySeconds()))));
     }
 
     @Command("rw|railway line|l setdwell <lineId> <ticks>")
@@ -671,7 +672,9 @@ public class LineCommand {
         Line line = guard.requireManageableLine(player, id);
         if (line == null) return;
         line.setDwellTicks(Math.max(20, ticks));
-        player.sendMessage("§aLine " + line.getName() + " dwell set to " + line.getDwellTicks() + " ticks.");
+        player.sendMessage(plugin.getLanguageManager().getMessage("line.setdwell_success",
+                LanguageManager.put(LanguageManager.put(LanguageManager.args(),
+                        "line_name", line.getName()), "ticks", String.valueOf(line.getDwellTicks()))));
     }
 
     @Command("rw|railway line|l setcarts <lineId> <count>")
@@ -682,7 +685,9 @@ public class LineCommand {
         Line line = guard.requireManageableLine(player, id);
         if (line == null) return;
         line.setTrainCars(Math.max(1, Math.min(32, count)));
-        player.sendMessage("§aLine " + line.getName() + " consist set to " + line.getTrainCars() + " carts.");
+        player.sendMessage(plugin.getLanguageManager().getMessage("line.setcarts_success",
+                LanguageManager.put(LanguageManager.put(LanguageManager.args(),
+                        "line_name", line.getName()), "count", String.valueOf(line.getTrainCars()))));
     }
 
     @Command("rw|railway line|l enableservice <lineId>")
@@ -695,7 +700,9 @@ public class LineCommand {
             line.setHeadwaySeconds(plugin.getServiceDefaultHeadwaySeconds());
         }
         line.setServiceEnabled(true);
-        player.sendMessage("§aLine " + line.getName() + " service enabled (headway: " + line.getHeadwaySeconds() + "s).");
+        player.sendMessage(plugin.getLanguageManager().getMessage("line.enableservice_success",
+                LanguageManager.put(LanguageManager.put(LanguageManager.args(),
+                        "line_name", line.getName()), "seconds", String.valueOf(line.getHeadwaySeconds()))));
     }
 
     @Command("rw|railway line|l disableservice <lineId>")
@@ -705,7 +712,8 @@ public class LineCommand {
         Line line = guard.requireManageableLine(player, id);
         if (line == null) return;
         line.setServiceEnabled(false);
-        player.sendMessage("§aLine " + line.getName() + " service disabled.");
+        player.sendMessage(plugin.getLanguageManager().getMessage("line.disableservice_success",
+                LanguageManager.put(LanguageManager.args(), "line_name", line.getName())));
     }
 
     @Command("rw|railway line|l serviceinfo <lineId>")
@@ -714,12 +722,22 @@ public class LineCommand {
                             @Argument(value = "lineId", suggestions = "lineIds") String id) {
         Line line = guard.requireLine(player, id);
         if (line == null) return;
-        player.sendMessage("§6=== " + line.getName() + " §7(" + line.getId() + ") ===");
-        player.sendMessage("§7Service: " + (line.isServiceEnabled() ? "§aENABLED" : "§cDISABLED"));
-        player.sendMessage("§7Headway: §f" + line.getHeadwaySeconds() + "s");
-        player.sendMessage("§7Dwell: §f" + line.getDwellTicks() + " ticks");
-        player.sendMessage("§7Consist: §f" + line.getTrainCars() + " carts");
-        player.sendMessage("§7Stops: §f" + line.getOrderedStopIds().size());
-        player.sendMessage("§7Direction: §f" + (line.getOrderedStopIds().size() >= 2 ? "bi-directional" : "N/A"));
+        LanguageManager lang = plugin.getLanguageManager();
+        player.sendMessage(lang.getMessage("line.serviceinfo.header",
+                LanguageManager.put(LanguageManager.put(LanguageManager.args(),
+                        "line_name", line.getName()), "line_id", line.getId())));
+        player.sendMessage(lang.getMessage(line.isServiceEnabled()
+                ? "line.serviceinfo.status_enabled" : "line.serviceinfo.status_disabled"));
+        player.sendMessage(lang.getMessage("line.serviceinfo.headway",
+                LanguageManager.put(LanguageManager.args(), "seconds", String.valueOf(line.getHeadwaySeconds()))));
+        player.sendMessage(lang.getMessage("line.serviceinfo.dwell",
+                LanguageManager.put(LanguageManager.args(), "ticks", String.valueOf(line.getDwellTicks()))));
+        player.sendMessage(lang.getMessage("line.serviceinfo.consist",
+                LanguageManager.put(LanguageManager.args(), "count", String.valueOf(line.getTrainCars()))));
+        player.sendMessage(lang.getMessage("line.serviceinfo.stops",
+                LanguageManager.put(LanguageManager.args(), "count", String.valueOf(line.getOrderedStopIds().size()))));
+        String dir = line.getOrderedStopIds().size() >= 2 ? "bi-directional" : "N/A";
+        player.sendMessage(lang.getMessage("line.serviceinfo.direction",
+                LanguageManager.put(LanguageManager.args(), "mode", dir)));
     }
 }

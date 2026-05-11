@@ -474,7 +474,7 @@ public final class Metro extends JavaPlugin {
     public int getForwardPreloadRadius() { return getConfig().getInt("chunk-loading.forward-preload-radius", 5); }
 
     public double getLocalActivationRadius() { return getConfig().getDouble("service.local.activation-radius", 256.0); }
-    public int getLocalRailSearchRadius() { return getConfig().getInt("service.local.rail-search-radius", 64); }
+    public int getLocalRailSearchRadius() { return getConfig().getInt("service.local.rail-search-radius", 5); }
     public String getLocalSpawnMode() { return getConfig().getString("service.local.spawn-mode", "nearest"); }
     public int getLocalVirtualIdleTicks() { return getConfig().getInt("service.local.virtual-idle-ticks", 200); }
     public int getLocalVirtualLookaheadStops() { return getConfig().getInt("service.local.virtual-lookahead-stops", 3); }
@@ -529,7 +529,7 @@ public final class Metro extends JavaPlugin {
     public boolean isUseUnboardedSamples() { return getConfig().getBoolean("travel-time.use-unboarded-samples", true); }
 
     public String getEntityTypeOverride() { return getConfig().getString("entity-model.entity-type-override", ""); }
-    public String getServiceModeRaw() { return getConfig().getString("service-mode", "local"); }
+    public String getServiceModeRaw() { return getConfig().getString("service.mode", "local"); }
     public double getCartSpeed() { return getConfig().getDouble("cart-speed", 0.4); }
     public double getTrainSpacing() { return getConfig().getDouble("train-spacing", 3.0); }
     public int getServiceHeartbeatIntervalTicks() { return getConfig().getInt("service-heartbeat-interval-ticks", 2); }
