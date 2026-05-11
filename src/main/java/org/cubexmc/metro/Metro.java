@@ -37,7 +37,10 @@ import org.cubexmc.metro.update.ConfigUpdater;
 import org.cubexmc.metro.update.DataFileUpdater;
 import org.cubexmc.metro.estimation.TravelTimeEstimator;
 import org.cubexmc.metro.util.MetroConstants;
+import org.cubexmc.metro.util.SchedulerUtil;
 import org.cubexmc.metro.util.VersionUtil;
+import org.cubexmc.metro.model.EntityModelController;
+import org.cubexmc.metro.service.LineServiceManager;
 
 public final class Metro extends JavaPlugin {
 
@@ -69,6 +72,8 @@ public final class Metro extends JavaPlugin {
     private TravelTimeEstimator travelTimeEstimator;
     private MapIntegrationLifecycle mapIntegrationLifecycle;
     private ScheduledTaskLifecycle scheduledTaskLifecycle;
+    private LineServiceManager lineServiceManager;
+    private EntityModelController entityModelController;
 
     @Override
     public void onEnable() {
@@ -106,6 +111,8 @@ public final class Metro extends JavaPlugin {
         this.routeRecorder = new org.cubexmc.metro.manager.RouteRecorder(this);
         Bukkit.getPluginManager().registerEvents(this.chatInputManager, this);
 
+        this.lineServiceManager = new org.cubexmc.metro.service.LineServiceManager(this);
+
         // 初始化传送门管理器
         this.portalManager = new org.cubexmc.metro.manager.PortalManager(this);
 
@@ -134,6 +141,9 @@ public final class Metro extends JavaPlugin {
         scoreboardManager = new ScoreboardManager(this);
         MetroConstants.initialize(this);
 
+        this.entityModelController = new org.cubexmc.metro.model.EntityModelController(this);
+        this.entityModelController.reload();
+
         CommandRegistration.Result commandRegistration =
                 new CommandRegistration(this, lineManager, stopManager, portalManager).register();
         if (commandRegistration == null) {
@@ -150,6 +160,12 @@ public final class Metro extends JavaPlugin {
         this.guiListener = listenerRegistration.guiListener();
         this.trainDisplayController = listenerRegistration.trainDisplayController();
 
+        if (entityModelController != null && getConfig().getBoolean("entity-model.enabled", false)) {
+            Bukkit.getPluginManager().registerEvents(
+                    new org.cubexmc.metro.listener.EntityModelListener(this), this);
+            getLogger().info("Entity model mode enabled: " + getEntityTypeOverride());
+        }
+
         // 注册bstats
         int pluginId = 25825; // <-- Replace with the id of your plugin!
         new Metrics(this, pluginId);
@@ -165,7 +181,18 @@ public final class Metro extends JavaPlugin {
 
         org.cubexmc.metro.api.MetroAPI.initialize(this);
 
-        getLogger().info("Metro(Modern) has been enabled!");
+        SchedulerUtil.ensureTickCounter(this);
+
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            try {
+                new org.cubexmc.metro.placeholder.RailwayPlaceholders(this).register();
+                getLogger().info("Registered Railway placeholders with PlaceholderAPI");
+            } catch (Throwable t) {
+                getLogger().warning("Failed to register PlaceholderAPI: " + t.getMessage());
+            }
+        }
+
+        getLogger().info("Railway has been enabled!");
     }
 
     @Override
@@ -507,7 +534,7 @@ public final class Metro extends JavaPlugin {
     public double getTrainSpacing() { return getConfig().getDouble("train-spacing", 3.0); }
     public int getServiceHeartbeatIntervalTicks() { return getConfig().getInt("service-heartbeat-interval-ticks", 2); }
 
-    public org.cubexmc.metro.service.LineServiceManager getLineServiceManager() { return null; }
+    public org.cubexmc.metro.service.LineServiceManager getLineServiceManager() { return lineServiceManager; }
 
-    public org.cubexmc.metro.model.EntityModelController getEntityModelController() { return null; }
+    public org.cubexmc.metro.model.EntityModelController getEntityModelController() { return entityModelController; }
 }
