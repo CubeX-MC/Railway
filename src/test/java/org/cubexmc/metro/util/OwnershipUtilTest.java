@@ -25,9 +25,9 @@ class OwnershipUtilTest {
         assertTrue(OwnershipUtil.canCreateLine(console));
         assertFalse(OwnershipUtil.hasAdminBypass(player));
 
-        when(player.hasPermission("metro.line.create")).thenReturn(true);
-        when(player.hasPermission("metro.stop.create")).thenReturn(true);
-        when(player.hasPermission("metro.portal.create")).thenReturn(true);
+        when(player.hasPermission("railway.line.create")).thenReturn(true);
+        when(player.hasPermission("railway.stop.create")).thenReturn(true);
+        when(player.hasPermission("railway.portal.create")).thenReturn(true);
         assertTrue(OwnershipUtil.canCreateLine(player));
         assertTrue(OwnershipUtil.canCreateStop(player));
         assertTrue(OwnershipUtil.canCreatePortal(player));
@@ -114,7 +114,7 @@ class OwnershipUtilTest {
         Player player = mock(Player.class);
         when(player.getUniqueId()).thenReturn(uuid);
         when(player.isOp()).thenReturn(op);
-        when(player.hasPermission("metro.admin")).thenReturn(adminPermission);
+        when(player.hasPermission("railway.admin")).thenReturn(adminPermission);
         return player;
     }
 }

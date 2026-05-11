@@ -90,9 +90,9 @@ class PlayerInteractListenerExtendedTest {
         when(player.getUniqueId()).thenReturn(UUID.randomUUID());
         when(player.getInventory()).thenReturn(inventory);
         when(player.getLocation()).thenReturn(playerLocation);
-        when(player.hasPermission("metro.admin")).thenReturn(false);
-        when(player.hasPermission("metro.stop.create")).thenReturn(false);
-        when(player.hasPermission("metro.use")).thenReturn(true);
+        when(player.hasPermission("railway.admin")).thenReturn(false);
+        when(player.hasPermission("railway.stop.create")).thenReturn(false);
+        when(player.hasPermission("railway.use")).thenReturn(true);
         when(inventory.getItemInMainHand()).thenReturn(new ItemStack(Material.AIR));
 
         // Spigot mock for actionbar messages
@@ -184,7 +184,7 @@ class PlayerInteractListenerExtendedTest {
     @Test
     void shouldNotHandleStopWhenPlayerLacksUsePermission() throws Exception {
         PlayerInteractListener listener = createListener();
-        when(player.hasPermission("metro.use")).thenReturn(false);
+        when(player.hasPermission("railway.use")).thenReturn(false);
 
         Stop stop = createStopWithPoint("s1");
         when(stopManager.getBestStopContainingLocation(any(Location.class), anyFloat())).thenReturn(stop);
@@ -337,7 +337,7 @@ class PlayerInteractListenerExtendedTest {
     @Test
     void shouldNotProcessSelectionToolForOffHand() {
         PlayerInteractListener listener = createListener();
-        when(player.hasPermission("metro.stop.create")).thenReturn(true);
+        when(player.hasPermission("railway.stop.create")).thenReturn(true);
         when(inventory.getItemInMainHand()).thenReturn(new ItemStack(Material.GOLDEN_SHOVEL));
 
         Location loc = new Location(mock(World.class), 5, 64, 5);
@@ -354,7 +354,7 @@ class PlayerInteractListenerExtendedTest {
     @Test
     void shouldNotProcessSelectionToolWhenHoldingDifferentItem() {
         PlayerInteractListener listener = createListener();
-        when(player.hasPermission("metro.stop.create")).thenReturn(true);
+        when(player.hasPermission("railway.stop.create")).thenReturn(true);
         when(inventory.getItemInMainHand()).thenReturn(new ItemStack(Material.DIAMOND_PICKAXE));
 
         Location loc = new Location(mock(World.class), 5, 64, 5);
@@ -434,8 +434,8 @@ class PlayerInteractListenerExtendedTest {
     @Test
     void shouldNotProcessSelectionToolWhenPlayerLacksPermission() {
         PlayerInteractListener listener = createListener();
-        when(player.hasPermission("metro.stop.create")).thenReturn(false);
-        when(player.hasPermission("metro.admin")).thenReturn(false);
+        when(player.hasPermission("railway.stop.create")).thenReturn(false);
+        when(player.hasPermission("railway.admin")).thenReturn(false);
         when(inventory.getItemInMainHand()).thenReturn(new ItemStack(Material.GOLDEN_SHOVEL));
 
         Location loc = new Location(mock(World.class), 5, 64, 5);

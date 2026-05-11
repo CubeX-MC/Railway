@@ -171,7 +171,7 @@ public class PlayerInteractListener implements Listener {
      * @return 是否成功处理了停靠点
      */
     private boolean checkAndHandleStopPoint(Player player, Location location) {
-        if (!player.hasPermission("Metro.use")) {
+        if (!player.hasPermission("railway.use")) {
             return false;
         }
 
@@ -224,7 +224,7 @@ public class PlayerInteractListener implements Listener {
      * 从 GUI 选择线路后继续乘车流程。
      */
     public void boardSelectedLine(Player player, String stopId, String lineId) {
-        if (!player.hasPermission("Metro.use")) {
+        if (!player.hasPermission("railway.use")) {
             return;
         }
 

@@ -68,8 +68,12 @@ public class LocationUtil {
     public static boolean isRail(Location location) {
         if (location == null) return false;
         Block block = location.getBlock();
-        if (isRailBlock(block.getType())) return true;
-        return isRailBlock(block.getRelative(0, -1, 0).getType());
+        if (block != null && isRailBlock(block.getType())) return true;
+        if (block != null) {
+            Block below = block.getRelative(0, -1, 0);
+            if (below != null) return isRailBlock(below.getType());
+        }
+        return false;
     }
 
     public static boolean isOnRail(Location location) {

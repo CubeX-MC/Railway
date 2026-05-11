@@ -1,5 +1,5 @@
 name: Railway
-version: '0.3.2'
+version: '0.4.0'
 main: org.cubexmc.metro.Metro
 api-version: '1.18'
 folia-supported: true

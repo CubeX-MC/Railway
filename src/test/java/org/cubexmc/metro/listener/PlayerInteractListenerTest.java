@@ -68,8 +68,8 @@ class PlayerInteractListenerTest {
         Fixtures fixtures = new Fixtures();
         Block rail = fixtures.block(Material.POWERED_RAIL, new Location(null, 8, 64, 8));
         PlayerInteractEvent event = fixtures.event(Action.RIGHT_CLICK_BLOCK, rail);
-        when(fixtures.player.hasPermission("metro.stop.create")).thenReturn(false);
-        when(fixtures.player.hasPermission("metro.use")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.stop.create")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.use")).thenReturn(false);
 
         fixtures.listener.onPlayerInteract(event);
 
@@ -96,7 +96,7 @@ class PlayerInteractListenerTest {
         Fixtures fixtures = new Fixtures();
         Block rail = fixtures.block(Material.POWERED_RAIL, new Location(null, 8, 64, 8));
         PlayerInteractEvent event = fixtures.event(Action.RIGHT_CLICK_BLOCK, rail);
-        when(fixtures.player.hasPermission("metro.stop.create")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.stop.create")).thenReturn(false);
         putLastInteractTime(fixtures.listener, fixtures.player.getUniqueId(), System.currentTimeMillis());
 
         fixtures.listener.onPlayerInteract(event);
@@ -108,7 +108,7 @@ class PlayerInteractListenerTest {
     @Test
     void shouldRejectSelectedLineWhenPlayerCannotUseMetro() {
         Fixtures fixtures = new Fixtures();
-        when(fixtures.player.hasPermission("metro.use")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.use")).thenReturn(false);
 
         fixtures.listener.boardSelectedLine(fixtures.player, "central", "red");
 
@@ -119,7 +119,7 @@ class PlayerInteractListenerTest {
     @Test
     void shouldNotifyWhenSelectedStopOrLineDoesNotExist() {
         Fixtures fixtures = new Fixtures();
-        when(fixtures.player.hasPermission("metro.use")).thenReturn(true);
+        when(fixtures.player.hasPermission("railway.use")).thenReturn(true);
         when(fixtures.stopManager.getStop("missing")).thenReturn(null);
         when(fixtures.lineManager.getLine("red")).thenReturn(fixtures.line("red", "central", "east"));
         when(fixtures.languageManager.getMessage("interact.stop_no_line")).thenReturn("no line");
@@ -133,7 +133,7 @@ class PlayerInteractListenerTest {
     void shouldNotifyWhenSelectedStopHasNoStopPoint() {
         Fixtures fixtures = new Fixtures();
         Stop stop = new Stop("central", "Central");
-        when(fixtures.player.hasPermission("metro.use")).thenReturn(true);
+        when(fixtures.player.hasPermission("railway.use")).thenReturn(true);
         when(fixtures.stopManager.getStop("central")).thenReturn(stop);
         when(fixtures.lineManager.getLine("red")).thenReturn(fixtures.line("red", "central", "east"));
         when(fixtures.languageManager.getMessage("interact.stop_no_point")).thenReturn("no point");
@@ -148,7 +148,7 @@ class PlayerInteractListenerTest {
         Fixtures fixtures = new Fixtures();
         Stop stop = fixtures.stopWithPoint("central");
         Line terminalLine = fixtures.line("red", "central");
-        when(fixtures.player.hasPermission("metro.use")).thenReturn(true);
+        when(fixtures.player.hasPermission("railway.use")).thenReturn(true);
         when(fixtures.stopManager.getStop("central")).thenReturn(stop);
         when(fixtures.lineManager.getLine("red")).thenReturn(terminalLine);
         when(fixtures.lineSelectionService.getBoardableLines(stop)).thenReturn(List.of());
@@ -166,7 +166,7 @@ class PlayerInteractListenerTest {
         Stop stop = fixtures.stopWithPoint("central");
         Line paidLine = fixtures.line("red", "central", "east");
         paidLine.setTicketPrice(12.5);
-        when(fixtures.player.hasPermission("metro.use")).thenReturn(true);
+        when(fixtures.player.hasPermission("railway.use")).thenReturn(true);
         when(fixtures.stopManager.getStop("central")).thenReturn(stop);
         when(fixtures.lineManager.getLine("red")).thenReturn(paidLine);
         when(fixtures.lineSelectionService.getBoardableLines(stop)).thenReturn(List.of(paidLine));
@@ -214,8 +214,8 @@ class PlayerInteractListenerTest {
             when(player.getUniqueId()).thenReturn(UUID.randomUUID());
             when(player.getInventory()).thenReturn(inventory);
             when(player.getLocation()).thenReturn(playerLocation);
-            when(player.hasPermission("metro.admin")).thenReturn(false);
-            when(player.hasPermission("metro.stop.create")).thenReturn(true);
+            when(player.hasPermission("railway.admin")).thenReturn(false);
+            when(player.hasPermission("railway.stop.create")).thenReturn(true);
             when(inventory.getItemInMainHand()).thenReturn(new ItemStack(Material.GOLDEN_SHOVEL));
             this.listener = new PlayerInteractListener(plugin, false);
         }

@@ -42,7 +42,7 @@ class CommandGuardTest {
         Fixtures fixtures = new Fixtures();
         Line line = new Line("red", "Red");
         when(fixtures.lineManager.getLine("red")).thenReturn(line);
-        when(fixtures.player.hasPermission("metro.admin")).thenReturn(true);
+        when(fixtures.player.hasPermission("railway.admin")).thenReturn(true);
 
         Line resolved = fixtures.guard.requireManageableLine(fixtures.player, "red");
 
@@ -54,7 +54,7 @@ class CommandGuardTest {
         Fixtures fixtures = new Fixtures();
         Line line = new Line("red", "Red");
         when(fixtures.lineManager.getLine("red")).thenReturn(line);
-        when(fixtures.player.hasPermission("metro.admin")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.admin")).thenReturn(false);
         when(fixtures.player.isOp()).thenReturn(false);
         when(fixtures.languageManager.getMessage("ownership.server")).thenReturn("Server");
         when(fixtures.languageManager.getMessage("ownership.none")).thenReturn("none");
@@ -87,7 +87,7 @@ class CommandGuardTest {
         stop.addAdmin(playerId);
         when(fixtures.stopManager.getStop("central")).thenReturn(stop);
         when(fixtures.player.getUniqueId()).thenReturn(playerId);
-        when(fixtures.player.hasPermission("metro.admin")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.admin")).thenReturn(false);
 
         Stop resolved = fixtures.guard.requireManageableStop(fixtures.player, "central");
 
@@ -111,7 +111,7 @@ class CommandGuardTest {
         Fixtures fixtures = new Fixtures();
         Portal portal = new Portal("gate");
         when(fixtures.portalManager.getPortal("gate")).thenReturn(portal);
-        when(fixtures.player.hasPermission("metro.admin")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.admin")).thenReturn(false);
         when(fixtures.player.isOp()).thenReturn(false);
         when(fixtures.languageManager.getMessage("ownership.server")).thenReturn("Server");
         when(fixtures.languageManager.getMessage("ownership.none")).thenReturn("none");
@@ -132,7 +132,7 @@ class CommandGuardTest {
         portal.addAdmin(playerId);
         when(fixtures.portalManager.getPortal("gate")).thenReturn(portal);
         when(fixtures.player.getUniqueId()).thenReturn(playerId);
-        when(fixtures.player.hasPermission("metro.admin")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.admin")).thenReturn(false);
 
         Portal resolved = fixtures.guard.requireManageablePortal(fixtures.player, "gate");
 
@@ -148,7 +148,7 @@ class CommandGuardTest {
         line.addAdmin(playerId);
         Stop serverStop = new Stop("central", "Central");
         when(fixtures.player.getUniqueId()).thenReturn(playerId);
-        when(fixtures.player.hasPermission("metro.admin")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.admin")).thenReturn(false);
         when(fixtures.languageManager.getMessage(eq("stop.permission_link"), anyMap())).thenReturn("link denied");
         when(fixtures.languageManager.getMessage("ownership.server")).thenReturn("Server");
 

@@ -151,7 +151,7 @@ class RailProtectionManagerTest {
     private Player player(java.util.UUID uuid, boolean adminPermission) {
         Player player = mock(Player.class);
         when(player.getUniqueId()).thenReturn(uuid);
-        when(player.hasPermission("metro.admin")).thenReturn(adminPermission);
+        when(player.hasPermission("railway.admin")).thenReturn(adminPermission);
         when(player.isOp()).thenReturn(false);
         return player;
     }

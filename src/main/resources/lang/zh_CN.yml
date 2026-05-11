@@ -206,6 +206,20 @@ line:
   line_suspended_msg: "&c{message}"
   suggest_alternatives: "&e替代线路："
   alternative_format: "&7- &a{alt_line_name}"
+  setheadway_success: "&a线路 &6{line_name}&a 发车间隔已设为 &6{seconds}秒&a，服务已启用。"
+  setdwell_success: "&a线路 &6{line_name}&a 停站时间已设为 &6{ticks} tick。"
+  setcarts_success: "&a线路 &6{line_name}&a 编组已设为 &6{count}&a 节。"
+  enableservice_success: "&a线路 &6{line_name}&a 服务已启用（发车间隔: &6{seconds}s&a）。"
+  disableservice_success: "&a线路 &6{line_name}&a 服务已禁用。"
+  serviceinfo:
+    header: "&6=== {line_name} &7({line_id}) ==="
+    status_enabled: "&7服务: &a已启用"
+    status_disabled: "&7服务: &c已禁用"
+    headway: "&7发车间隔: &f{seconds}s"
+    dwell: "&7停站: &f{ticks} ticks"
+    consist: "&7编组: &f{count} 节"
+    stops: "&7站点: &f{count}"
+    direction: "&7方向: &f{mode}"
 
 # 传送门命令相关
 portal:

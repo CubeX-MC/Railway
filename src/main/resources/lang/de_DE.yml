@@ -207,6 +207,21 @@ line:
   suggest_alternatives: "&eAlternative Routen:"
   alternative_format: "&7- &a{alt_line_name}"
 
+  setheadway_success: "&aLine &6{line_name}&a headway set to &6{seconds}s&a, service enabled."
+  setdwell_success: "&aLine &6{line_name}&a dwell set to &6{ticks}&a ticks."
+  setcarts_success: "&aLine &6{line_name}&a consist set to &6{count}&a carts."
+  enableservice_success: "&aLine &6{line_name}&a service enabled (headway: &6{seconds}s&a)."
+  disableservice_success: "&aLine &6{line_name}&a service disabled."
+  serviceinfo:
+    header: "&6=== {line_name} &7({line_id}) ==="
+    status_enabled: "&7Service: &aENABLED"
+    status_disabled: "&7Service: &cDISABLED"
+    headway: "&7Headway: &f{seconds}s"
+    dwell: "&7Dwell: &f{ticks} ticks"
+    consist: "&7Consist: &f{count} carts"
+    stops: "&7Stops: &f{count}"
+    direction: "&7Direction: &f{mode}"
+
 # Portal-Befehle
 portal:
   help_header: "&a===== Metro Portalverwaltungsbefehle ====="

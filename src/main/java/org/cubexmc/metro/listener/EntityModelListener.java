@@ -158,7 +158,7 @@ public class EntityModelListener implements Listener {
         // Allow OP players in creative to remove model entities
         if (event instanceof org.bukkit.event.entity.EntityDamageByEntityEvent damageByEntity) {
             if (damageByEntity.getDamager() instanceof Player player) {
-                if (player.hasPermission("Metro.admin") && player.getGameMode() == org.bukkit.GameMode.CREATIVE) {
+                if (player.hasPermission("railway.admin") && player.getGameMode() == org.bukkit.GameMode.CREATIVE) {
                     event.setCancelled(false);
                 }
             }
