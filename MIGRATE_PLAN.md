@@ -49,10 +49,57 @@ git merge main                   # brings upstream changes into railway branch
 
 ---
 
-## Pending: Physics & Train Layer (Phase 1)
+## Pending: Physics & Train Layer (Phase 1) — MUST BE PORTED AS ATOMIC UNIT
 
-The physics engine and train system form a tightly-coupled unit. All files below must be ported together
-due to circular dependencies.
+**CRITICAL**: The physics/train/service layer forms a tightly-coupled cluster.
+Incremental file-by-file porting does NOT work — each file imports types from others,
+creating an infinite chain of `cannot find symbol` errors. Attempted 2026-05-11.
+
+**Strategy for next attempt**: Copy ALL files from all three packages at once (`physics/*.java`,
+`train/*.java` Railway-only, `service/*.java` Railway-only), fix package/class references in bulk,
+then add missing config methods to Metro.java as a single batch. Only THEN attempt compilation.
+
+### Pre-Flight Checklist (before copying any files)
+
+All of these must be in place BEFORE copying physics/train/service files:
+
+1. **Metro.java** — add 50+ config getter methods (see section below)
+2. **model/Line.java** — add `headwaySeconds`, `dwellTicks`, `trainCars`, `serviceEnabled` fields + getters/setters
+3. **manager/LineManager.java** — add `tick()`, `saveLines()`, `saveStops()` stub methods
+4. **manager/StopManager.java** — add `tick()` stub method
+5. **util/SchedulerUtil.java** — add `getCurrentTick()`, `isFolia()`, `ensureTickCounter()` + `AtomicLong` counter
+6. **util/AdventureUtil.java** — port with Spigot-compatible fallbacks (use Bukkit API, not Paper)
+
+### Metro.java Config Methods Needed
+
+```java
+// All read from getConfig() with defaults:
+config(), getControlMode(), isPhysicsLeadKinematic(), isSafeSpeedMode(),
+getPhysicsLookaheadBlocks(), getLeashOffsetY(), getLeashMobTypeRaw(),
+getServiceDefaultHeadwaySeconds(), getServiceMetricsLogIntervalTicks(),
+getChunkLoadingRadius(), getChunkLoadingUpdateIntervalTicks(),
+isChunkLoadingEnabled(), isChunkLoadingOnlyWhenMoving(), getForwardPreloadRadius(),
+getLocalActivationRadius(), getLocalRailSearchRadius(), getLocalSpawnMode(),
+getLocalVirtualIdleTicks(), getLocalVirtualLookaheadStops(),
+isLocalVirtualizationEnabled(), getTrainName(), isTrainNameVisible(),
+// Title config (~20 methods)
+isArriveStopTitleEnabled(), getArriveStopTitle(), getArriveStopSubtitle(), ...
+isDepartureTitleEnabled(), getDepartureTitle(), getDepartureSubtitle(), ...
+isWaitingTitleEnabled(), getWaitingTitle(), getWaitingSubtitle(), getWaitingInterval(),
+isTerminalStopTitleEnabled(), getTerminalStopTitle(), getTerminalStopSubtitle(), ...
+getWaitingActionbar(), getDepartureActionbar(),
+getArrivalInitialDelay(), getDepartureInitialDelay(), getDepartureInterval(),
+getArrivalNotes(), getDepartureNotes(),
+// Sound config
+isArrivalSoundEnabled(), isDepartureSoundEnabled(),
+// Travel time estimator config
+isTravelTimeEnabled(), getDefaultSectionSeconds(), getPriorStrength(),
+getOutlierSigma(), getDecayPerDay(), getUnboardedSampleWeight(), isUseUnboardedSamples(),
+// Misc
+getEntityTypeOverride(), getServiceModeRaw(), getCartSpeed(), getTrainSpacing(),
+getServiceHeartbeatIntervalTicks(), getLineServiceManager(),
+getTravelTimeEstimator(), getBlockSectionManager()
+```
 
 ### Dependency Graph
 
@@ -150,45 +197,31 @@ Metro.java (main class — needs Railway config methods)
 
 ---
 
-## How to Continue
+## How to Continue (Revised)
 
-1. Checkout the railway branch:
-   ```bash
-   git checkout railway
+1. **Checkout the railway branch** and complete the Pre-Flight Checklist above (add all config methods
+   to Metro.java, fields to Line.java, stubs to managers, utility methods to SchedulerUtil).
+
+2. **Copy ALL Phase 1 files at once** from backup:
+   ```powershell
+   $backup = "C:\Users\Angus\AppData\Local\Temp\opencode\railway_backup\src\main\java\org\cubexmc\railway"
+   $dest = "C:\Users\Angus\Desktop\MC server\Railway\src\main\java\org\cubexmc\metro"
+   # Copy: physics/*, train/* (only new files), service/* (only new files)
+   # Apply package fix: org.cubexmc.railway -> org.cubexmc.metro
+   # Apply import fix: import ...Railway -> import ...Metro
+   # Strip BOM: [System.IO.File]::ReadAllBytes / WriteAllBytes with UTF8Encoding($false)
    ```
 
-2. Copy missing files from backup:
-   ```bash
-   # Backup of original Railway src/ is at:
-   # C:\Users\Angus\AppData\Local\Temp\opencode\railway_backup\
-   ```
+3. **Replace `Bukkit.getCurrentTick()`** with `SchedulerUtil.getCurrentTick()` in all copied files.
 
-3. Port files following the dependency order in Phase 1.
+4. **Compile and fix errors** — at this point most errors should be about specific config method
+   signatures, not missing classes.
 
-4. After each batch, compile and fix errors:
-   ```bash
-   mvn compile
-   ```
+5. **Commit working batches** and push to `origin/railway`.
 
-5. Commit working batches:
-   ```bash
-   git add -A -- ':!target/' ':!nul'
-   git commit -m "feat: ..."
-   ```
-
-6. When Metro upstream releases:
-   ```bash
-   git checkout main
-   git fetch upstream
-   git merge upstream/main
-   git checkout railway
-   git merge main
-   ```
-
----
-
-## Reference
+### Reference
 
 - Upstream Metro: https://github.com/CubeX-MC/Metro
 - Railway fork:  https://github.com/CubeX-MC/Railway
 - Metro v1.1.6 commit: `0f20ac8`
+- Phase 1 files backup: `%TEMP%\opencode\railway_backup\`
