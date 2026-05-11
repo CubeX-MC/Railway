@@ -65,7 +65,7 @@ public final class LineDetailView {
                 lore.add(msg("gui.line_detail.end_stop"));
             }
             lore.add("");
-            if (player.hasPermission("metro.tp") && stop.getStopPointLocation() != null) {
+            if (player.hasPermission("railway.tp") && stop.getStopPointLocation() != null) {
                 lore.add(msg("gui.line_detail.click_tp"));
             }
             if (canManage) {

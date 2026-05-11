@@ -133,7 +133,7 @@ public final class StopListController {
     }
 
     private void handleStopClick(Player player, Stop stop) {
-        if (!player.hasPermission("metro.tp")) {
+        if (!player.hasPermission("railway.tp")) {
             return;
         }
 

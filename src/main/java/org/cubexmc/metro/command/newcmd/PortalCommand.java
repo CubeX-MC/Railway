@@ -281,7 +281,7 @@ public class PortalCommand {
 
     @Command("m|metro portal reload")
     @CommandDescription("重新加载传送门配置")
-    @Permission("metro.admin")
+    @Permission("railway.admin")
     public void reloadPortals(CommandSender sender) {
         PortalCommandService.ReloadResult result =
                 portalService.reloadPortals(() -> DataFileUpdater.migratePortals(plugin));

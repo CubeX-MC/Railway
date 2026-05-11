@@ -1,10 +1,10 @@
-name: Metro
-version: '1.1.6'
+name: Railway
+version: '0.3.2'
 main: org.cubexmc.metro.Metro
 api-version: '1.18'
 folia-supported: true
 authors: [angushushu, wwwer]
-description: A simple metro management system / 一个简单的地铁管理系统
+description: A simple railway management system / 一个简单的铁路管理系统
 website: https://cubexmc.org
 softdepend:
   - ViaVersion
@@ -15,26 +15,26 @@ softdepend:
 
 
 permissions:
-  metro.admin:
-    description: Allow use of Metro plugin admin commands
+  railway.admin:
+    description: Allow use of Railway plugin admin commands
     default: op
     children:
-      metro.tp: true
-  metro.use:
-    description: Allow players to use Metro plugin features (such as riding trains)
+      railway.tp: true
+  railway.use:
+    description: Allow players to use Railway plugin features (such as riding trains)
     default: true
-  metro.gui:
-    description: Allow players to open the Metro GUI
+  railway.gui:
+    description: Allow players to open the Railway GUI
     default: true
-  metro.tp:
+  railway.tp:
     description: Allow players to teleport to stops via GUI
     default: false
-  metro.line.create:
-    description: Allow players to create new metro lines
+  railway.line.create:
+    description: Allow players to create new railway lines
     default: false
-  metro.stop.create:
+  railway.stop.create:
     description: Allow players to create new stops
     default: false
-  metro.portal.create:
+  railway.portal.create:
     description: Allow players to create new minecart portals
     default: false

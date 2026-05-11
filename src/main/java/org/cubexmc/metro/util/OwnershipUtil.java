@@ -15,10 +15,10 @@ import org.cubexmc.metro.model.Stop;
  */
 public final class OwnershipUtil {
 
-    public static final String PERMISSION_ADMIN = "metro.admin";
-    public static final String PERMISSION_LINE_CREATE = "metro.line.create";
-    public static final String PERMISSION_STOP_CREATE = "metro.stop.create";
-    public static final String PERMISSION_PORTAL_CREATE = "metro.portal.create";
+    public static final String PERMISSION_ADMIN = "railway.admin";
+    public static final String PERMISSION_LINE_CREATE = "railway.line.create";
+    public static final String PERMISSION_STOP_CREATE = "railway.stop.create";
+    public static final String PERMISSION_PORTAL_CREATE = "railway.portal.create";
 
     private OwnershipUtil() {
     }

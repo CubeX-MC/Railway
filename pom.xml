@@ -5,16 +5,16 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.cubexmc</groupId>
-    <version>1.1.6</version>
+    <version>0.3.2</version>
 
-    <artifactId>metro</artifactId>
-    <name>metro</name>
+    <artifactId>railway</artifactId>
+    <name>railway</name>
     <packaging>jar</packaging>
 
     <properties>
         <!-- 使用 Java 17 以兼容 1.18+ 服务器 -->
         <java.release>17</java.release>
-        <base.name>metro</base.name>
+        <base.name>railway</base.name>
         <!-- 统一版本，不再需要版本后缀 -->
         <final.name>${base.name}-${project.version}</final.name>
         <jacoco.minimum.line.coverage>0.25</jacoco.minimum.line.coverage>

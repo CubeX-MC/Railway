@@ -44,14 +44,14 @@ public class MetroMainCommand {
 
     @Command("m|metro gui")
     @CommandDescription("Open the Metro GUI")
-    @Permission("metro.gui")
+    @Permission("railway.gui")
     public void gui(Player player) {
         plugin.getGuiManager().openMainMenu(player);
     }
 
     @Command("m|metro reload")
     @CommandDescription("Reload Metro configuration")
-    @Permission("metro.admin")
+    @Permission("railway.admin")
     public void reload(CommandSender sender) {
         if (sender instanceof Player player) {
             if (!OwnershipUtil.hasAdminBypass(player)) {

@@ -91,7 +91,7 @@ public final class LineDetailController {
             if (OwnershipUtil.canManageLine(player, line)) {
                 plugin.getGuiManager().openStopSettings(player, stopId, lineId, holder.snapshot());
             }
-        } else if (player.hasPermission("metro.tp") && stop.getStopPointLocation() != null) {
+        } else if (player.hasPermission("railway.tp") && stop.getStopPointLocation() != null) {
             player.closeInventory();
             SchedulerUtil.teleportEntity(player, stop.getStopPointLocation()).thenAccept(success -> {
                 if (success) {

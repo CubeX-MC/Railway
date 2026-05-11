@@ -127,7 +127,7 @@ public final class StopListView {
             lore.add(msg("gui.line_list.view_only"));
         }
         lore.add("");
-        if (player.hasPermission("metro.tp")) {
+        if (player.hasPermission("railway.tp")) {
             if (stop.getStopPointLocation() != null) {
                 lore.add(msg("gui.stop_list.click_tp"));
             } else {
