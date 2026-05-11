@@ -476,4 +476,8 @@ public class Stop {
         }
         return linkedLineIds.contains(lineId);
     }
+
+    public static boolean isPlayerWithinStopRadius(Stop stop, double radius) {
+        return stop != null && stop.getStopPointLocation() != null;
+    }
 } 

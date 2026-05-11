@@ -3,6 +3,7 @@ package org.cubexmc.metro.util;
 import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
@@ -18,6 +19,24 @@ import org.bukkit.scheduler.BukkitTask;
 public class SchedulerUtil {
 
     private static final boolean IS_FOLIA = VersionUtil.isFolia();
+    public static boolean isFolia() { return IS_FOLIA; }
+
+    private static final AtomicLong TICK_COUNTER = new AtomicLong();
+    private static volatile boolean tickCounterStarted = false;
+
+    public static long getCurrentTick() {
+        try {
+            return (long) Bukkit.class.getMethod("getCurrentTick").invoke(null);
+        } catch (Exception e) {
+            return TICK_COUNTER.get();
+        }
+    }
+
+    public static void ensureTickCounter(Plugin plugin) {
+        if (tickCounterStarted) return;
+        tickCounterStarted = true;
+        globalRun(plugin, () -> TICK_COUNTER.incrementAndGet(), 0L, 1L);
+    }
 
     // Folia 反射缓存
     private static Method globalSchedulerMethod;

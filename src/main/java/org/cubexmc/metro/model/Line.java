@@ -31,6 +31,10 @@ public class Line {
     private LineStatus lineStatus = LineStatus.NORMAL;
     private final List<String> alternativeRouteIds;
     private String suspensionMessage;
+    private int headwaySeconds;
+    private int dwellTicks = 100;
+    private int trainCars = 1;
+    private boolean serviceEnabled;
     
     /**
      * 创建新线路
@@ -162,6 +166,15 @@ public class Line {
         this.railProtected = railProtected;
     }
     
+    public int getHeadwaySeconds() { return headwaySeconds; }
+    public void setHeadwaySeconds(int headwaySeconds) { this.headwaySeconds = headwaySeconds; }
+    public int getDwellTicks() { return dwellTicks; }
+    public void setDwellTicks(int dwellTicks) { this.dwellTicks = dwellTicks; }
+    public int getTrainCars() { return trainCars; }
+    public void setTrainCars(int trainCars) { this.trainCars = Math.max(1, trainCars); }
+    public boolean isServiceEnabled() { return serviceEnabled; }
+    public void setServiceEnabled(boolean enabled) { this.serviceEnabled = enabled; }
+
     /**
      * 获取有序停靠区ID列表
      * 

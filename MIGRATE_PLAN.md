@@ -49,7 +49,7 @@ git merge main                   # brings upstream changes into railway branch
 
 ---
 
-## Pending: Physics & Train Layer (Phase 1) — MUST BE PORTED AS ATOMIC UNIT
+## Pending: Physics & Train Layer (Phase 1) — COMPLETED 2026-05-11
 
 **CRITICAL**: The physics/train/service layer forms a tightly-coupled cluster.
 Incremental file-by-file porting does NOT work — each file imports types from others,

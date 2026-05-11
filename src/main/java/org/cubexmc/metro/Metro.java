@@ -35,6 +35,7 @@ import org.cubexmc.metro.train.TrainDisplayController;
 import org.cubexmc.metro.train.TrainMovementTask;
 import org.cubexmc.metro.update.ConfigUpdater;
 import org.cubexmc.metro.update.DataFileUpdater;
+import org.cubexmc.metro.estimation.TravelTimeEstimator;
 import org.cubexmc.metro.util.MetroConstants;
 import org.cubexmc.metro.util.VersionUtil;
 
@@ -65,6 +66,7 @@ public final class Metro extends JavaPlugin {
     private org.cubexmc.metro.service.PriceService priceService;
     private org.cubexmc.metro.service.LineStatusService lineStatusService;
     private SaveCoordinator saveCoordinator;
+    private TravelTimeEstimator travelTimeEstimator;
     private MapIntegrationLifecycle mapIntegrationLifecycle;
     private ScheduledTaskLifecycle scheduledTaskLifecycle;
 
@@ -151,6 +153,9 @@ public final class Metro extends JavaPlugin {
         // 注册bstats
         int pluginId = 25825; // <-- Replace with the id of your plugin!
         new Metrics(this, pluginId);
+
+        this.travelTimeEstimator = new TravelTimeEstimator(this);
+        this.travelTimeEstimator.load();
 
         this.scheduledTaskLifecycle = new ScheduledTaskLifecycle(this, lineManager, stopManager, portalManager);
         this.scheduledTaskLifecycle.start();
@@ -398,6 +403,10 @@ public final class Metro extends JavaPlugin {
         return saveCoordinator;
     }
 
+    public TravelTimeEstimator getTravelTimeEstimator() {
+        return travelTimeEstimator;
+    }
+
     public void flushPersistentData() {
         if (lineManager != null) {
             lineManager.forceSaveSync();
@@ -417,4 +426,84 @@ public final class Metro extends JavaPlugin {
         return playerInteractListener;
     }
 
+    // ===== Railway service config methods =====
+
+    public Metro config() { return this; }
+
+    public String getControlMode() { return getConfig().getString("train.control-mode", "kinematic"); }
+    public boolean isPhysicsLeadKinematic() { return getConfig().getBoolean("train.physics-lead-kinematic", true); }
+    public boolean isSafeSpeedMode() { return getConfig().getBoolean("train.safe-speed-mode", true); }
+    public int getPhysicsLookaheadBlocks() { return getConfig().getInt("train.physics-lookahead-blocks", 8); }
+    public double getLeashOffsetY() { return getConfig().getDouble("train.leash-offset-y", 1.5); }
+    public String getLeashMobTypeRaw() { return getConfig().getString("train.leash-mob-type", "PIG"); }
+
+    public int getServiceDefaultHeadwaySeconds() { return getConfig().getInt("service.default-headway-seconds", 120); }
+    public int getServiceMetricsLogIntervalTicks() { return getConfig().getInt("service.metrics-log-interval-ticks", 1200); }
+
+    public int getChunkLoadingRadius() { return getConfig().getInt("chunk-loading.radius", 3); }
+    public int getChunkLoadingUpdateIntervalTicks() { return getConfig().getInt("chunk-loading.update-interval-ticks", 20); }
+    public boolean isChunkLoadingEnabled() { return getConfig().getBoolean("chunk-loading.enabled", true); }
+    public boolean isChunkLoadingOnlyWhenMoving() { return getConfig().getBoolean("chunk-loading.only-when-moving", true); }
+    public int getForwardPreloadRadius() { return getConfig().getInt("chunk-loading.forward-preload-radius", 5); }
+
+    public double getLocalActivationRadius() { return getConfig().getDouble("service.local.activation-radius", 256.0); }
+    public int getLocalRailSearchRadius() { return getConfig().getInt("service.local.rail-search-radius", 64); }
+    public String getLocalSpawnMode() { return getConfig().getString("service.local.spawn-mode", "nearest"); }
+    public int getLocalVirtualIdleTicks() { return getConfig().getInt("service.local.virtual-idle-ticks", 200); }
+    public int getLocalVirtualLookaheadStops() { return getConfig().getInt("service.local.virtual-lookahead-stops", 3); }
+    public boolean isLocalVirtualizationEnabled() { return getConfig().getBoolean("service.local.virtualization-enabled", false); }
+
+    public String getTrainName() { return getConfig().getString("train.name", ""); }
+    public boolean isTrainNameVisible() { return getConfig().getBoolean("train.name-visible", true); }
+
+    public boolean isArriveStopTitleEnabled() { return getConfig().getBoolean("titles.arrive-stop.enabled", true); }
+    public String getArriveStopTitle() { return getConfig().getString("titles.arrive-stop.title", ""); }
+    public String getArriveStopSubtitle() { return getConfig().getString("titles.arrive-stop.subtitle", ""); }
+    public int getArriveStopFadeIn() { return getConfig().getInt("titles.arrive-stop.fade-in", 10); }
+    public int getArriveStopStay() { return getConfig().getInt("titles.arrive-stop.stay", 40); }
+    public int getArriveStopFadeOut() { return getConfig().getInt("titles.arrive-stop.fade-out", 10); }
+
+    public boolean isDepartureTitleEnabled() { return getConfig().getBoolean("titles.departure.enabled", true); }
+    public String getDepartureTitle() { return getConfig().getString("titles.departure.title", ""); }
+    public String getDepartureSubtitle() { return getConfig().getString("titles.departure.subtitle", ""); }
+    public int getDepartureFadeIn() { return getConfig().getInt("titles.departure.fade-in", 10); }
+    public int getDepartureStay() { return getConfig().getInt("titles.departure.stay", 30); }
+    public int getDepartureFadeOut() { return getConfig().getInt("titles.departure.fade-out", 10); }
+
+    public boolean isWaitingTitleEnabled() { return getConfig().getBoolean("titles.waiting.enabled", true); }
+    public String getWaitingTitle() { return getConfig().getString("titles.waiting.title", ""); }
+    public String getWaitingSubtitle() { return getConfig().getString("titles.waiting.subtitle", ""); }
+    public int getWaitingInterval() { return getConfig().getInt("titles.waiting.interval", 60); }
+
+    public boolean isTerminalStopTitleEnabled() { return getConfig().getBoolean("titles.terminal-stop.enabled", true); }
+    public String getTerminalStopTitle() { return getConfig().getString("titles.terminal-stop.title", ""); }
+    public String getTerminalStopSubtitle() { return getConfig().getString("titles.terminal-stop.subtitle", ""); }
+    public int getTerminalStopFadeIn() { return getConfig().getInt("titles.terminal-stop.fade-in", 10); }
+    public int getTerminalStopStay() { return getConfig().getInt("titles.terminal-stop.stay", 40); }
+    public int getTerminalStopFadeOut() { return getConfig().getInt("titles.terminal-stop.fade-out", 10); }
+
+    public String getWaitingActionbar() { return getConfig().getString("actionbar.waiting", ""); }
+    public String getDepartureActionbar() { return getConfig().getString("actionbar.departing", ""); }
+    public int getArrivalInitialDelay() { return getConfig().getInt("titles.arrival-initial-delay", 0); }
+    public int getDepartureInitialDelay() { return getConfig().getInt("titles.departure-initial-delay", 0); }
+    public int getDepartureInterval() { return getConfig().getInt("titles.departure-interval", 20); }
+    public String getArrivalNotes() { return getConfig().getString("titles.arrival-notes", ""); }
+    public String getDepartureNotes() { return getConfig().getString("titles.departure-notes", ""); }
+
+    public boolean isArrivalSoundEnabled() { return getConfig().getBoolean("sounds.arrival.enabled", false); }
+    public boolean isDepartureSoundEnabled() { return getConfig().getBoolean("sounds.departure.enabled", false); }
+
+    public boolean isTravelTimeEnabled() { return getConfig().getBoolean("travel-time.enabled", false); }
+    public double getDefaultSectionSeconds() { return getConfig().getDouble("travel-time.default-section-seconds", 10.0); }
+    public double getPriorStrength() { return getConfig().getDouble("travel-time.prior-strength", 3.0); }
+    public double getOutlierSigma() { return getConfig().getDouble("travel-time.outlier-sigma", 4.0); }
+    public double getDecayPerDay() { return getConfig().getDouble("travel-time.decay-per-day", 0.05); }
+    public double getUnboardedSampleWeight() { return getConfig().getDouble("travel-time.unboarded-sample-weight", 0.5); }
+    public boolean isUseUnboardedSamples() { return getConfig().getBoolean("travel-time.use-unboarded-samples", true); }
+
+    public String getEntityTypeOverride() { return getConfig().getString("entity-model.entity-type-override", ""); }
+    public String getServiceModeRaw() { return getConfig().getString("service-mode", "local"); }
+    public double getCartSpeed() { return getConfig().getDouble("cart-speed", 0.4); }
+    public double getTrainSpacing() { return getConfig().getDouble("train-spacing", 3.0); }
+    public int getServiceHeartbeatIntervalTicks() { return getConfig().getInt("service-heartbeat-interval-ticks", 2); }
 }

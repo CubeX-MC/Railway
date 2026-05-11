@@ -28,6 +28,9 @@ import org.cubexmc.metro.update.DataFileUpdater;
 public class StopManager {
 
     private final Metro plugin;
+
+    public void tick() {}
+    public void saveStops() {}
     private final File configFile;
     private FileConfiguration config;
 

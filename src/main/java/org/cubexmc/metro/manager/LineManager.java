@@ -244,6 +244,10 @@ public class LineManager {
         }
     }
 
+    public void tick() {}
+    public void saveLines() { forceSaveSync(); }
+    public void saveStops() {}
+
     public Line getLine(String lineId) {
         lock.readLock().lock();
         try {
