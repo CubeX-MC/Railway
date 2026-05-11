@@ -24,13 +24,13 @@ public class MetroMainCommand {
         this.stopManager = stopManager;
     }
 
-    @Command("m|metro")
-    @CommandDescription("Metro Main Command")
+    @Command("rw|railway")
+    @CommandDescription("Railway Main Command")
     public void root(CommandSender sender) {
         help(sender);
     }
 
-    @Command("m|metro help")
+    @Command("rw|railway help")
     @CommandDescription("Show Metro Help Menu")
     public void help(CommandSender sender) {
         org.cubexmc.metro.manager.LanguageManager lang = plugin.getLanguageManager();
@@ -42,14 +42,14 @@ public class MetroMainCommand {
         sender.sendMessage(lang.getMessage("command.help_portal"));
     }
 
-    @Command("m|metro gui")
+    @Command("rw|railway gui")
     @CommandDescription("Open the Metro GUI")
     @Permission("railway.gui")
     public void gui(Player player) {
         plugin.getGuiManager().openMainMenu(player);
     }
 
-    @Command("m|metro reload")
+    @Command("rw|railway reload")
     @CommandDescription("Reload Metro configuration")
     @Permission("railway.admin")
     public void reload(CommandSender sender) {

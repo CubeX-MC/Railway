@@ -37,25 +37,25 @@ public class StopCommand {
         this.view = new StopCommandView(plugin, stopManager, lineManager, guard, new CommandDisplayService());
     }
 
-    @Command("m|metro stop|s")
+    @Command("rw|railway stop|s")
     @CommandDescription("Show Stop Help Menu")
     public void help(CommandSender sender) {
         view.showHelp(sender, 1);
     }
 
-    @Command("m|metro stop|s help [page]")
+    @Command("rw|railway stop|s help [page]")
     @CommandDescription("Show Stop Help Menu Page")
     public void helpPage(CommandSender sender, @Argument(value = "page", suggestions = "pageNumbers") Integer page) {
         view.showHelp(sender, page);
     }
 
-    @Command("m|metro stop|s list [page]")
+    @Command("rw|railway stop|s list [page]")
     @CommandDescription("List all metro stops")
     public void list(Player player, @Argument(value = "page", suggestions = "pageNumbers") Integer page) {
         view.listStops(player, stopService.listStops(), page);
     }
 
-    @Command("m|metro stop|s create <stopId> <name>")
+    @Command("rw|railway stop|s create <stopId> <name>")
     @CommandDescription("Create a new metro stop")
     public void create(Player player, @Argument("stopId") String id, @Greedy @Argument("name") String name) {
         if (!OwnershipUtil.canCreateStop(player)) {
@@ -87,7 +87,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s delete <stopId>")
+    @Command("rw|railway stop|s delete <stopId>")
     @CommandDescription("Delete a metro stop")
     public void delete(Player player, @Argument(value = "stopId", suggestions = "stopIds") String id) {
         Stop stop = guard.requireManageableStop(player, id);
@@ -103,7 +103,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s tp <stopId>")
+    @Command("rw|railway stop|s tp <stopId>")
     @CommandDescription("Teleport to a metro stop")
     public void tp(Player player, @Argument(value = "stopId", suggestions = "stopIds") String id) {
         Stop stop = guard.requireStop(player, id);
@@ -124,7 +124,7 @@ public class StopCommand {
         });
     }
 
-    @Command("m|metro stop|s setcorners <stopId>")
+    @Command("rw|railway stop|s setcorners <stopId>")
     @CommandDescription("Set stop corners from current selection")
     public void setCorners(Player player, @Argument(value = "stopId", suggestions = "stopIds") String id) {
         Stop stop = guard.requireManageableStop(player, id);
@@ -143,7 +143,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s setpoint [stopId] [yaw]")
+    @Command("rw|railway stop|s setpoint [stopId] [yaw]")
     @CommandDescription("Set stop point at player position")
     public void setPoint(Player player,
                          @Argument(value = "stopId", suggestions = "stopIds") String id,
@@ -180,7 +180,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s addtransfer <stopId> <lineId>")
+    @Command("rw|railway stop|s addtransfer <stopId> <lineId>")
     @CommandDescription("Add transferable line to stop")
     public void addTransfer(Player player,
                             @Argument(value = "stopId", suggestions = "stopIds") String id,
@@ -202,7 +202,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s deltransfer <stopId> <lineId>")
+    @Command("rw|railway stop|s deltransfer <stopId> <lineId>")
     @CommandDescription("Remove transferable line from stop")
     public void delTransfer(Player player,
                             @Argument(value = "stopId", suggestions = "stopIds") String id,
@@ -224,7 +224,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s listtransfers <stopId>")
+    @Command("rw|railway stop|s listtransfers <stopId>")
     @CommandDescription("List transferable lines for stop")
     public void listTransfers(Player player, @Argument(value = "stopId", suggestions = "stopIds") String id) {
         Stop stop = guard.requireStop(player, id);
@@ -234,7 +234,7 @@ public class StopCommand {
         view.listTransfers(player, stop);
     }
 
-    @Command("m|metro stop|s settitle <stopId> <titleType> <titleKey> <titleValue>")
+    @Command("rw|railway stop|s settitle <stopId> <titleType> <titleKey> <titleValue>")
     @CommandDescription("Set custom title entry for stop")
     public void setTitle(Player player,
                          @Argument(value = "stopId", suggestions = "stopIds") String id,
@@ -265,7 +265,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s deltitle <stopId> <titleType> [titleKey]")
+    @Command("rw|railway stop|s deltitle <stopId> <titleType> [titleKey]")
     @CommandDescription("Delete custom title entry for stop")
     public void delTitle(Player player,
                          @Argument(value = "stopId", suggestions = "stopIds") String id,
@@ -314,7 +314,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s listtitles <stopId>")
+    @Command("rw|railway stop|s listtitles <stopId>")
     @CommandDescription("List custom title config")
     public void listTitles(Player player, @Argument(value = "stopId", suggestions = "stopIds") String id) {
         Stop stop = guard.requireStop(player, id);
@@ -324,7 +324,7 @@ public class StopCommand {
         view.listTitles(player, stop);
     }
 
-    @Command("m|metro stop|s rename <stopId> <name>")
+    @Command("rw|railway stop|s rename <stopId> <name>")
     @CommandDescription("Rename stop display name")
     public void rename(Player player, @Argument(value = "stopId", suggestions = "stopIds") String id, @Greedy @Argument("name") String name) {
         Stop stop = guard.requireManageableStop(player, id);
@@ -340,7 +340,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s info <stopId>")
+    @Command("rw|railway stop|s info <stopId>")
     @CommandDescription("Show stop details")
     public void info(Player player, @Argument(value = "stopId", suggestions = "stopIds") String id) {
         Stop stop = guard.requireStop(player, id);
@@ -350,7 +350,7 @@ public class StopCommand {
         view.sendInfo(player, stop);
     }
 
-    @Command("m|metro stop|s trust <stopId> <playerName>")
+    @Command("rw|railway stop|s trust <stopId> <playerName>")
     @CommandDescription("Grant stop admin")
     public void trust(Player player,
                       @Argument(value = "stopId", suggestions = "stopIds") String id,
@@ -375,7 +375,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s untrust <stopId> <playerName>")
+    @Command("rw|railway stop|s untrust <stopId> <playerName>")
     @CommandDescription("Revoke stop admin")
     public void untrust(Player player,
                         @Argument(value = "stopId", suggestions = "stopIds") String id,
@@ -399,7 +399,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s owner <stopId> <playerName>")
+    @Command("rw|railway stop|s owner <stopId> <playerName>")
     @CommandDescription("Transfer stop ownership")
     public void owner(Player player,
                       @Argument(value = "stopId", suggestions = "stopIds") String id,
@@ -426,7 +426,7 @@ public class StopCommand {
         }
     }
 
-    @Command("m|metro stop|s link <action> <stopId> <lineId>")
+    @Command("rw|railway stop|s link <action> <stopId> <lineId>")
     @CommandDescription("Allow or deny linking a line to a stop")
     public void link(Player player,
                      @Argument(value = "action", suggestions = "linkActions") String action,

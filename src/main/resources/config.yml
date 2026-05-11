@@ -347,3 +347,120 @@ derailment:
     # 爆炸是否破坏方块
     # Whether the explosion breaks blocks
     break_blocks: false
+
+# =============================================
+# Railway Service Configuration
+# =============================================
+
+service-mode: local
+service-default-headway-seconds: 120
+service-default-dwell-ticks: 100
+service-default-train-cars: 3
+service-heartbeat-interval-ticks: 1
+service-metrics-log-interval-ticks: 0
+
+# Local mode (virtual timetable + on-demand materialization)
+service.local:
+  activation-radius: 16.0
+  rail-search-radius: 5.0
+  spawn-mode: platform_boundary
+  virtual-idle-ticks: 200
+  virtual-lookahead-stops: 2
+  virtualization-enabled: true
+
+# =============================================
+# Train Physics Configuration
+# =============================================
+
+train.control-mode: reactive
+train.physics-lead-kinematic: true
+train.physics-lookahead-blocks: 4
+train.trail-seconds: 10
+train.smoothing-lerp: 0.15
+train.snap-to-rail: true
+train.strict-when-has-passenger: true
+train.safe-speed-mode: true
+train.leash-offset-y: 0.2
+train.leash-mob-type: ALLAY
+train.name: "RailwayTrain"
+train.name-visible: false
+
+cart-speed: 0.4
+train-spacing: 1.6
+
+# =============================================
+# Chunk Loading Configuration
+# =============================================
+
+chunk-loading.enabled: true
+chunk-loading.radius: 2
+chunk-loading.forward-preload-radius: 1
+chunk-loading.only-when-moving: false
+chunk-loading.update-interval-ticks: 10
+
+# =============================================
+# Entity Model Configuration
+# =============================================
+
+entity-model.enabled: false
+entity-model.offset-y: 0.0
+entity-model.multi-passenger: false
+entity-model.entity-type-override: ""
+
+# =============================================
+# Travel Time Estimation
+# =============================================
+
+travel-time.enabled: false
+travel-time.default-section-seconds: 10.0
+travel-time.prior-strength: 3.0
+travel-time.outlier-sigma: 4.0
+travel-time.decay-per-day: 0.05
+travel-time.use-unboarded-samples: false
+travel-time.unboarded-sample-weight: 0.5
+
+# =============================================
+# Title Configuration
+# =============================================
+
+titles.arrive-stop.enabled: true
+titles.arrive-stop.title: ""
+titles.arrive-stop.subtitle: ""
+titles.arrive-stop.fade-in: 10
+titles.arrive-stop.stay: 40
+titles.arrive-stop.fade-out: 10
+
+titles.departure.enabled: true
+titles.departure.title: ""
+titles.departure.subtitle: ""
+titles.departure.fade-in: 10
+titles.departure.stay: 30
+titles.departure.fade-out: 10
+
+titles.waiting.enabled: true
+titles.waiting.title: ""
+titles.waiting.subtitle: ""
+titles.waiting.interval: 60
+
+titles.terminal-stop.enabled: true
+titles.terminal-stop.title: ""
+titles.terminal-stop.subtitle: ""
+titles.terminal-stop.fade-in: 10
+titles.terminal-stop.stay: 40
+titles.terminal-stop.fade-out: 10
+
+titles.arrival-initial-delay: 0
+titles.departure-initial-delay: 0
+titles.departure-interval: 20
+titles.arrival-notes: ""
+titles.departure-notes: ""
+
+actionbar.waiting: ""
+actionbar.departing: ""
+
+# =============================================
+# Sound Configuration
+# =============================================
+
+sounds.arrival.enabled: false
+sounds.departure.enabled: false

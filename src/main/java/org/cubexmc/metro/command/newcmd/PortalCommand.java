@@ -51,13 +51,13 @@ public class PortalCommand {
         this.guard = new CommandGuard(plugin, plugin.getLineManager(), plugin.getStopManager());
     }
 
-    @Command("m|metro portal")
+    @Command("rw|railway portal")
     @CommandDescription("显示传送门管理帮助")
     public void help(CommandSender sender) {
         showHelp(sender);
     }
 
-    @Command("m|metro portal help")
+    @Command("rw|railway portal help")
     @CommandDescription("显示传送门管理帮助")
     public void helpPage(CommandSender sender) {
         showHelp(sender);
@@ -73,7 +73,7 @@ public class PortalCommand {
         }
     }
 
-    @Command("m|metro portal create <portalId>")
+    @Command("rw|railway portal create <portalId>")
     @CommandDescription("Create a portal entrance at the current position")
     public void createPortal(Player sender, @Argument("portalId") String id) {
         if (!OwnershipUtil.canCreatePortal(sender)) {
@@ -104,7 +104,7 @@ public class PortalCommand {
         }
     }
 
-    @Command("m|metro portal setdest <portalId>")
+    @Command("rw|railway portal setdest <portalId>")
     @CommandDescription("Set the current position as the portal destination")
     public void setDestination(Player sender, @Argument(value = "portalId", suggestions = "portalIds") String id) {
         Portal portal = guard.requireManageablePortal(sender, id);
@@ -132,7 +132,7 @@ public class PortalCommand {
                         "yaw", String.format("%.1f", loc.getYaw())), "world", loc.getWorld().getName())));
     }
 
-    @Command("m|metro portal link <id1> <id2>")
+    @Command("rw|railway portal link <id1> <id2>")
     @CommandDescription("双向配对两个传送门")
     public void linkPortals(Player sender,
                             @Argument(value = "id1", suggestions = "portalIds") String id1,
@@ -154,7 +154,7 @@ public class PortalCommand {
                 LanguageManager.put(LanguageManager.put(LanguageManager.args(), "portal_id_1", id1), "portal_id_2", id2)));
     }
 
-    @Command("m|metro portal delete <portalId>")
+    @Command("rw|railway portal delete <portalId>")
     @CommandDescription("Delete a portal")
     public void deletePortal(Player sender, @Argument(value = "portalId", suggestions = "portalIds") String id) {
         Portal portal = guard.requireManageablePortal(sender, id);
@@ -171,7 +171,7 @@ public class PortalCommand {
                 LanguageManager.put(LanguageManager.args(), "portal_id", id)));
     }
 
-    @Command("m|metro portal list [page]")
+    @Command("rw|railway portal list [page]")
     @CommandDescription("列出所有传送门")
     public void listPortals(CommandSender sender, @Argument(value = "page", suggestions = "pageNumbers") Integer page) {
         List<Portal> allPortals = portalService.listPortals();
@@ -201,7 +201,7 @@ public class PortalCommand {
         }
     }
 
-    @Command("m|metro portal trust <portalId> <playerName>")
+    @Command("rw|railway portal trust <portalId> <playerName>")
     @CommandDescription("Grant portal admin permissions")
     public void trust(Player player,
                       @Argument(value = "portalId", suggestions = "portalIds") String id,
@@ -229,7 +229,7 @@ public class PortalCommand {
         }
     }
 
-    @Command("m|metro portal untrust <portalId> <playerName>")
+    @Command("rw|railway portal untrust <portalId> <playerName>")
     @CommandDescription("Remove portal admin permissions")
     public void untrust(Player player,
                         @Argument(value = "portalId", suggestions = "portalIds") String id,
@@ -254,7 +254,7 @@ public class PortalCommand {
         }
     }
 
-    @Command("m|metro portal owner <portalId> <playerName>")
+    @Command("rw|railway portal owner <portalId> <playerName>")
     @CommandDescription("转移传送门所有权")
     public void owner(Player player,
                       @Argument(value = "portalId", suggestions = "portalIds") String id,
@@ -279,7 +279,7 @@ public class PortalCommand {
         }
     }
 
-    @Command("m|metro portal reload")
+    @Command("rw|railway portal reload")
     @CommandDescription("重新加载传送门配置")
     @Permission("railway.admin")
     public void reloadPortals(CommandSender sender) {
