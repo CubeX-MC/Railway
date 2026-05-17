@@ -18,7 +18,7 @@
         <java.release>17</java.release>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <base.name>metro</base.name>
+        <base.name>railway</base.name>
 
         <!-- 统一版本，不再需要版本后缀 -->
         <final.name>${base.name}-${project.version}</final.name>
