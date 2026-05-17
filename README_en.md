@@ -1,13 +1,13 @@
-# Metro Subway System
+# Railway Subway System
 
 [中文](README.md) · English
-[Discord](https://discord.com/invite/7tJeSZPZgv) · [QQ](https://pd.qq.com/s/1n3hpe4e7?b=9) · [Wiki](https://github.com/CubeX-MC/Metro/wiki)
+[Discord](https://discord.com/invite/7tJeSZPZgv) · [QQ](https://pd.qq.com/s/1n3hpe4e7?b=9) · [Wiki](https://github.com/CubeX-MC/Railway/wiki)
 
-![](https://img.shields.io/badge/Minecraft-1.18%2B-blue) ![](https://img.shields.io/badge/Folia-supported-brightgreen) ![](https://img.shields.io/badge/Java-17%2B-orange) ![](https://img.shields.io/github/v/release/CubeX-MC/Metro?label=version)
+![](https://img.shields.io/badge/Minecraft-1.18%2B-blue) ![](https://img.shields.io/badge/Folia-supported-brightgreen) ![](https://img.shields.io/badge/Java-17%2B-orange) ![](https://img.shields.io/github/v/release/CubeX-MC/Railway?label=version)
 
 ---
 
-Metro is a Minecraft subway transit plugin. Administrators can create automated subway networks. Players can right-click a powered rail to summon a minecart and ride automatically.
+Railway is a Minecraft subway transit plugin. Administrators can create automated subway networks. Players can right-click a powered rail to summon a minecart and ride automatically.
 
 Supports Paper 1.18+ and Folia.
 
@@ -35,9 +35,9 @@ Supports Paper 1.18+ and Folia.
 
 ## Learn More
 
-Full documentation is available on the [Metro Wiki](https://github.com/CubeX-MC/Metro/wiki).
+Full documentation is available on the [Railway Wiki](https://github.com/CubeX-MC/Railway/wiki).
 
 ---
 
-![](https://bstats.org/signatures/bukkit/Metro.svg)
-[![](https://img.shields.io/github/stars/CubeX-MC/Metro?style=social)](https://github.com/CubeX-MC/Metro/stargazers) [![](https://img.shields.io/github/forks/CubeX-MC/Metro?style=social)](https://github.com/CubeX-MC/Metro/network/members)
+![](https://bstats.org/signatures/bukkit/Railway.svg)
+[![](https://img.shields.io/github/stars/CubeX-MC/Railway?style=social)](https://github.com/CubeX-MC/Railway/stargazers) [![](https://img.shields.io/github/forks/CubeX-MC/Railway?style=social)](https://github.com/CubeX-MC/Railway/network/members)
