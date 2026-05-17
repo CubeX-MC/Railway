@@ -10,6 +10,7 @@ target/
 .mvn/
 mvnw
 mvnw.cmd
+dependency-reduced-pom.xml
 
 # IDE 文件和配置
 .idea/
@@ -90,6 +91,12 @@ logs/
 
 # 依赖目录
 node_modules/
+
+# Agent / local harness workflow
+AGENTS.md
+docs/agent-*.md
+skills/
+.codex/
 
 Plugins/
 newnan-plugins/

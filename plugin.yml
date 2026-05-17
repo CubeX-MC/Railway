@@ -6,9 +6,7 @@
 
     <groupId>org.cubexmc</groupId>
 
-
     <version>1.1.7</version>
-
 
 
     <artifactId>railway</artifactId>
@@ -72,10 +70,6 @@
             <id>dynmap-repo</id>
             <url>https://repo.mikeprimm.com/</url>
         </repository>
-        <repository>
-            <id>placeholderapi</id>
-            <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
-        </repository>
     </repositories>
 
     <dependencies>
@@ -117,13 +111,6 @@
             <artifactId>mockito-junit-jupiter</artifactId>
             <version>${mockito.version}</version>
             <scope>test</scope>
-        </dependency>
-        <!-- PlaceholderAPI (optional soft dependency) -->
-        <dependency>
-            <groupId>me.clip</groupId>
-            <artifactId>placeholderapi</artifactId>
-            <version>2.11.6</version>
-            <scope>provided</scope>
         </dependency>
         <!-- Packet-level virtual scoreboard, folia-supported -->
         <dependency>

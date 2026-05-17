@@ -22,7 +22,7 @@ Metro is a subway transit system plugin that lets administrators create automate
 | Command                                           | Description                                |
 | :-----------------------------------------------  | :----------------------------------------- |
 | `/m line create <line_id> <display_name>`         | Create a new line                          |
-| `/m line delete <line_id>`                        | Delete an existing line                    |
+| `/m line delete <line_id> confirm`                | Delete an existing line                    |
 | `/m line list`                                    | List all lines                             |
 | `/m line rename <line_id> <new_name>`             | Rename a line                              |
 | `/m line setcolor <line_id> <color_code>`         | Set line color (e.g. `&9` for blue)        |
@@ -34,7 +34,7 @@ Metro is a subway transit system plugin that lets administrators create automate
 | `/m line setprice <line_id> interval <base> <perStop> [max]`  | Set interval-based pricing     |
 | `/m line setprice reset <line_id>`                | Reset to legacy flat pricing               |
 | `/m line priceinfo <line_id>`                     | View pricing details and active discounts  |
-| `/m line setstatus <line_id> <normal|suspended|maintenance>` | Set operational status    |
+| `/m line setstatus <line_id> <normal&#124;suspended&#124;maintenance>` | Set operational status    |
 | `/m line addstop <line_id> <stop_id> [index]`     | Add a stop to the line (optional position) |
 | `/m line delstop <line_id> <stop_id>`             | Remove a stop from the line                |
 | `/m line stops <line_id>`                         | Show all stops on the line                 |
@@ -43,9 +43,9 @@ Metro is a subway transit system plugin that lets administrators create automate
 | `/m line portals <line_id>`                       | Show portals enabled for the line          |
 | `/m line info <line_id>`                          | Display detailed line info and members     |
 | `/m line recordroute <line_id>`                   | Record or save route points                |
-| `/m line clearroute <line_id>`                    | Clear recorded route points                |
+| `/m line clearroute <line_id> confirm`            | Clear recorded route points                |
 | `/m line routeinfo <line_id>`                     | Show route recording status                |
-| `/m line protect <line_id> <on|off>`              | Toggle rail protection                     |
+| `/m line protect <line_id> <on&#124;off>`              | Toggle rail protection                     |
 | `/m line clonereverse <source_id> <new_id> [suffix]` | Clone line in reverse direction         |
 | `/m line trust <line_id> <player>`                | Add a line administrator                   |
 | `/m line untrust <line_id> <player>`              | Remove a line administrator                |
@@ -56,12 +56,12 @@ Metro is a subway transit system plugin that lets administrators create automate
 | Command                                                       | Description                        |
 | :------------------------------------------------------------  | :--------------------------------- |
 | `/m stop create <stop_id> <display_name>`                      | Create a new stop                  |
-| `/m stop delete <stop_id>`                                     | Delete a stop and its configuration|
+| `/m stop delete <stop_id> confirm`                             | Delete a stop and its configuration|
 | `/m stop list`                                                 | List all stops                     |
 | `/m stop rename <stop_id> <new_name>`                          | Rename a stop                      |
 | `/m stop info <stop_id>`                                       | Show detailed info for a stop      |
 | `/m stop setcorners <stop_id>`                                 | Apply the currently selected region|
-| `/m stop setpoint [yaw]`                                       | Set the StopPoint (powered rail)   |
+| `/m stop setpoint [stopId] [yaw]`                                       | Set the StopPoint (powered rail)   |
 | `/m stop addtransfer <stop_id> <line_id>`                      | Add a transfer line                |
 | `/m stop deltransfer <stop_id> <line_id>`                      | Remove a transfer line             |
 | `/m stop listtransfers <stop_id>`                              | List transfer lines                |
@@ -72,7 +72,7 @@ Metro is a subway transit system plugin that lets administrators create automate
 | `/m stop trust <stop_id> <player>`                             | Add a stop administrator           |
 | `/m stop untrust <stop_id> <player>`                           | Remove a stop administrator        |
 | `/m stop owner <stop_id> <player>`                             | Transfer stop ownership            |
-| `/m stop link <allow|deny> <stop_id> <line_id>`                | Manage line link whitelist         |
+| `/m stop link <allow&#124;deny> <stop_id> <line_id>`                | Manage line link whitelist         |
 
 ### Portal Management
 
@@ -81,7 +81,7 @@ Metro is a subway transit system plugin that lets administrators create automate
 | `/m portal create <portal_id>`                    | Create a minecart portal entrance   |
 | `/m portal setdest <portal_id>`                   | Set the portal destination          |
 | `/m portal link <portal_id_1> <portal_id_2>`      | Link two portals both ways          |
-| `/m portal delete <portal_id>`                    | Delete a portal                     |
+| `/m portal delete <portal_id> confirm`            | Delete a portal                     |
 | `/m portal list`                                  | List all portals                    |
 | `/m portal trust <portal_id> <player>`            | Add a portal administrator          |
 | `/m portal untrust <portal_id> <player>`          | Remove a portal administrator       |
@@ -122,7 +122,7 @@ Players right-click the powered rail inside a Stop to summon and board a minecar
 | `metro.admin`      | OP      | Allows use of all admin commands, including teleport access |
 | `metro.use`        | Everyone | Allows players to use the subway system         |
 | `metro.gui`        | Everyone | Allows players to open `/m gui`; visible actions are filtered by permission |
-| `metro.tp`         | false   | Allows players to teleport to stops through the GUI |
+| `metro.tp`         | false   | Allows players to teleport to stops through commands and the GUI |
 | `metro.line.create`| false   | Allows players to create new lines               |
 | `metro.stop.create`| false   | Allows players to create new stops               |
 | `metro.portal.create`| false | Allows players to create minecart portals         |
@@ -146,7 +146,7 @@ Players right-click the powered rail inside a Stop to summon and board a minecar
 
 - **Build the plugin**: `mvn clean package`
   - Produces `target/metro-<version>.jar`
-  - The current version comes from `pom.xml`, for example `target/metro-1.1.6.jar`
+  - The current version comes from `pom.xml`, for example `target/metro-1.1.7.jar`
 
 The repository is now a single-module Maven project targeting Java 17 and 1.18+ servers, with Paper/Folia compatibility logic included.
 
