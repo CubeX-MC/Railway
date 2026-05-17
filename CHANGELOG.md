@@ -1,40 +1,54 @@
 # Changelog
 
-## [Unreleased]
+## 1.1.7 (unreleased)
 
-### Added
+- **Spatial**: fix `Range3D.contains` half-open interval bug (mismatch with
+  Bukkit `BoundingBox`); remove `Range3D` dependency from `Stop.java`
+- **Docs**: add JavaDoc to `Range3D`, `Point3D`, `Octree`; add `@since`
+  annotations to all `MetroAPI` methods; configure `maven-javadoc-plugin`
 
-- JaCoCo coverage gate and SpotBugs quality gate in Maven build.
-- New baseline unit tests for `LineManager`, `StopManager`, and `TrainMovementTask`.
-- New model, spatial index, configuration migration, and ownership permission tests.
-- New `LineSelectionService` for stable boardable-line filtering, default resolution, and recent player choices.
-- New `ConfigFacade` for centralized configuration reads.
-- New `SaveCoordinator` for versioned YAML snapshots and atomic persistent data writes.
-- New shared command guard for line/stop lookup and ownership checks.
-- New shared constants class for minecart and scoreboard identifiers.
-- Contribution guide and architecture document.
-- Release notes template and compatibility matrix.
-- Rail protection index regression tests.
+## 1.1.6
 
-### Changed
+- **Pricing**: add `PriceRule` with flat/distance/interval modes, time-based
+  discounts; replace flat `ticketPrice` with rule-based `PriceService`
+- **Line status**: add `NORMAL` / `MAINTENANCE` / `SUSPENDED` states with
+  alternate-route suggestions on suspension
+- **Public API**: introduce `MetroAPI.getInstance()` with snapshot records,
+  ownership queries, line status, pricing, portal mutations
+- **Commands**: `setprice` (flat/distance/interval/reset), `setstatus`,
+  `priceinfo`
+- **Events**: `LineStatusChangeEvent`
+- **Train**: distance/interval fare settlement at station arrival
+- **Map**: BlueMap 3D stop volumes, orthogonal routes, route sampling config;
+  dynmap/squaremap improvements
+- **Folia**: 26.1.2 compat, command/scoreboard fallbacks
 
-- CI now runs `verify` before packaging.
-- `Metro` delegates configuration access through `ConfigFacade`.
-- Shared line command handler no longer uses mutable sender state.
-- Runtime safety hardening in movement/listener paths.
-- Removed unused legacy `MetroAdminCommand` and `MetroAdminTabCompleter`; Cloud annotation commands remain the active command entry.
-- Raised the JaCoCo line coverage gate from 6% to 15%.
-- Right-click boarding now resolves lines through `LineSelectionService` instead of relying on collection iteration order.
-- Line and stop saves now flush through a shared coordinator before reload/disable.
-- Line and stop commands now share common not-found and permission handling.
-- GitHub Actions now use the current single-module Maven commands and upload `target/*.jar`.
-- Shutdown cleanup now uses the active train registry first and skips fallback world entity scans on Folia.
-- Release workflow now supports `v*` tags and uploads only the final `metro-*.jar` artifact.
-- Train runtime responsibilities are split further across event publishing, scoreboard updates, task registry/startup, and movement assist controllers.
+## 1.1.5
 
-### Fixed
+- **Spatial**: introduce `Octree` + `Range3D` spatial index for O(log N) stop
+  queries; use Bukkit `BoundingBox` for containment checks
+- **Selection**: `SelectionManager` + selection tool (default golden shovel)
+- **GUI**: line boarding choice GUI for stops served by multiple lines
+- **Stop titles**: configurable `stop_continuous`, `arrive_stop`,
+  `terminal_stop`, `departure` title/subtitle/actionbar
+- **Commands**: `cloud` command framework migration complete
+- **Portal**: admin permission checks, line-bound portal usage, link command
+- **Protection**: rail break protection in safe mode
+- **Lifecycle**: configurable async save coordinator
 
-- SpotBugs high-severity findings in metrics encoding, scoreboard null handling, and waiting sound repeat calculation.
-- Additional logging for invalid line owner/admin UUID entries in `lines.yml`.
-- Stale async line/stop saves can no longer overwrite newer YAML snapshots.
-- Data file migrations now create `.bak-<schema_version>` backups before writing migrated YAML.
+## 1.1.4
+
+- **Route recording**: `RouteRecorder` with collinear point normalisation
+- **Scheduling**: Folia-aware `SchedulerUtil` (region/entity/global dispatch)
+- **Map integration**: Dynmap, BlueMap, Squaremap lifecycles
+- **Scoreboard**: per-train in-game ETA display
+- **Ownership**: stop/line/portal admin and permission model
+- **Localisation**: `zh_CN`, `zh_TW`, `en_US`, `de_DE`, `es_ES`, `nl_NL`,
+  `tr_TR`
+- **Data migration**: auto-upgrade from 1.0.x schemas
+
+## 1.0.10
+
+- Fix minecart stopping at terminal stops
+- Basic continuous title display
+- Original command structure (pre-`cloud` framework)
