@@ -1,152 +1,43 @@
 # Metro Subway System
 
-[中文](README.md) | English<br>
-[Discord](https://discord.com/invite/7tJeSZPZgv) | [QQ频道](https://pd.qq.com/s/1n3hpe4e7?b=9)
-## Plugin Overview
+[中文](README.md) · English
+[Discord](https://discord.com/invite/7tJeSZPZgv) · [QQ](https://pd.qq.com/s/1n3hpe4e7?b=9) · [Wiki](https://github.com/CubeX-MC/Metro/wiki)
 
-Metro is a subway transit system plugin that lets administrators create automated subway lines and provides players with a convenient riding experience, inspired by Newnan.city. The repository is a single-module Maven project targeting Java 17 and 1.18+ servers, with Paper/Folia compatibility logic included.
+![](https://img.shields.io/badge/Minecraft-1.18%2B-blue) ![](https://img.shields.io/badge/Folia-supported-brightgreen) ![](https://img.shields.io/badge/Java-17%2B-orange) ![](https://img.shields.io/github/v/release/CubeX-MC/Metro?label=version)
 
-![Demo](https://i.imgur.com/K335iWj.gif)
+---
+
+Metro is a Minecraft subway transit plugin. Administrators can create automated subway networks. Players can right-click a powered rail to summon a minecart and ride automatically.
+
+Supports Paper 1.18+ and Folia.
+
+## Features
+
+- **Multi-line Network** — Create multiple routes with stops and transfers
+- **GUI Administration** — Built-in GUI management
+- **Pricing System** — Flat, distance-based, and interval-based fares
+- **Permission System** — Per-element trust and ownership
+- **Safe Mode** — Protect minecarts from pushing, attacks, and destruction
+- **Minecart Portals** — Cross-area and cross-world teleportation
+- **Web Map** — BlueMap / Dynmap / Squaremap integration
+- **Economy** — Optional Vault support
+- **Multi-language** — Chinese, English, German, Spanish, and more
+- **Folia Support** — Compatible with Folia multithreaded servers
 
 ## Basic Concepts
 
-* **Line**: Defines a subway route by an ordered list of stops.  
-* **Stop**: A station area in the world, defined by two corner points.  
-* **StopPoint**: A powered rail within a Stop where players right-click to board a minecart.  
-* **Transfer**: Connections from one Stop to other Lines for route changes.
+| Concept | Description |
+| :--- | :--- |
+| **Line** | An ordered list of stops that defines a train route |
+| **Stop** | A station area defined by two corner points |
+| **StopPoint** | A powered rail where players board |
+| **Transfer** | Connections from one Stop to other Lines |
 
-## Admin Commands (main: `/m`)
+## Learn More
 
-### Line Management
+Full documentation is available on the [Metro Wiki](https://github.com/CubeX-MC/Metro/wiki).
 
-| Command                                           | Description                                |
-| :-----------------------------------------------  | :----------------------------------------- |
-| `/m line create <line_id> <display_name>`         | Create a new line                          |
-| `/m line delete <line_id> confirm`                | Delete an existing line                    |
-| `/m line list`                                    | List all lines                             |
-| `/m line rename <line_id> <new_name>`             | Rename a line                              |
-| `/m line setcolor <line_id> <color_code>`         | Set line color (e.g. `&9` for blue)        |
-| `/m line setterminus <line_id> <terminus_name>`   | Set terminus description                   |
-| `/m line setmaxspeed <line_id> <speed>`           | Set maximum speed for the line             |
-| `/m line setprice <line_id> <price>`              | Set legacy flat ticket price               |
-| `/m line setprice <line_id> flat <base>`          | Set flat pricing                           |
-| `/m line setprice <line_id> distance <base> <perBlock> [max]` | Set distance-based pricing    |
-| `/m line setprice <line_id> interval <base> <perStop> [max]`  | Set interval-based pricing     |
-| `/m line setprice reset <line_id>`                | Reset to legacy flat pricing               |
-| `/m line priceinfo <line_id>`                     | View pricing details and active discounts  |
-| `/m line setstatus <line_id> <normal&#124;suspended&#124;maintenance>` | Set operational status    |
-| `/m line addstop <line_id> <stop_id> [index]`     | Add a stop to the line (optional position) |
-| `/m line delstop <line_id> <stop_id>`             | Remove a stop from the line                |
-| `/m line stops <line_id>`                         | Show all stops on the line                 |
-| `/m line addportal <line_id> <portal_id>`         | Allow the line to use a portal             |
-| `/m line delportal <line_id> <portal_id>`         | Remove a portal from the line              |
-| `/m line portals <line_id>`                       | Show portals enabled for the line          |
-| `/m line info <line_id>`                          | Display detailed line info and members     |
-| `/m line recordroute <line_id>`                   | Record or save route points                |
-| `/m line clearroute <line_id> confirm`            | Clear recorded route points                |
-| `/m line routeinfo <line_id>`                     | Show route recording status                |
-| `/m line protect <line_id> <on&#124;off>`              | Toggle rail protection                     |
-| `/m line clonereverse <source_id> <new_id> [suffix]` | Clone line in reverse direction         |
-| `/m line trust <line_id> <player>`                | Add a line administrator                   |
-| `/m line untrust <line_id> <player>`              | Remove a line administrator                |
-| `/m line owner <line_id> <player>`                | Transfer line ownership                    |
+---
 
-### Stop Management
-
-| Command                                                       | Description                        |
-| :------------------------------------------------------------  | :--------------------------------- |
-| `/m stop create <stop_id> <display_name>`                      | Create a new stop                  |
-| `/m stop delete <stop_id> confirm`                             | Delete a stop and its configuration|
-| `/m stop list`                                                 | List all stops                     |
-| `/m stop rename <stop_id> <new_name>`                          | Rename a stop                      |
-| `/m stop info <stop_id>`                                       | Show detailed info for a stop      |
-| `/m stop setcorners <stop_id>`                                 | Apply the currently selected region|
-| `/m stop setpoint [stopId] [yaw]`                                       | Set the StopPoint (powered rail)   |
-| `/m stop addtransfer <stop_id> <line_id>`                      | Add a transfer line                |
-| `/m stop deltransfer <stop_id> <line_id>`                      | Remove a transfer line             |
-| `/m stop listtransfers <stop_id>`                              | List transfer lines                |
-| `/m stop settitle <stop_id> <type> <key> <text>`               | Set custom title display           |
-| `/m stop deltitle <stop_id> <type> [key]`                      | Delete custom title (or specific)  |
-| `/m stop listtitles <stop_id>`                                 | List custom title configurations   |
-| `/m stop tp <stop_id>`                                         | Teleport to a stop                 |
-| `/m stop trust <stop_id> <player>`                             | Add a stop administrator           |
-| `/m stop untrust <stop_id> <player>`                           | Remove a stop administrator        |
-| `/m stop owner <stop_id> <player>`                             | Transfer stop ownership            |
-| `/m stop link <allow&#124;deny> <stop_id> <line_id>`                | Manage line link whitelist         |
-
-### Portal Management
-
-| Command                                           | Description                         |
-| :------------------------------------------------ | :---------------------------------- |
-| `/m portal create <portal_id>`                    | Create a minecart portal entrance   |
-| `/m portal setdest <portal_id>`                   | Set the portal destination          |
-| `/m portal link <portal_id_1> <portal_id_2>`      | Link two portals both ways          |
-| `/m portal delete <portal_id> confirm`            | Delete a portal                     |
-| `/m portal list`                                  | List all portals                    |
-| `/m portal trust <portal_id> <player>`            | Add a portal administrator          |
-| `/m portal untrust <portal_id> <player>`          | Remove a portal administrator       |
-| `/m portal owner <portal_id> <player>`            | Transfer portal ownership           |
-| `/m portal reload`                                | Reload portal configuration         |
-
-### System Management
-
-| Command          | Description                         |
-| :---------------  | :---------------------------------- |
-| `/m gui`          | Open the Metro GUI                  |
-| `/m reload`       | Reload all plugin configs and data  |
-
-## Quick Start
-
-### Create Your First Line
-
-1. `/m line create line1 Line 1`  
-2. `/m line setcolor line1 &9`  
-3. `/m line setterminus line1 East Terminus`
-
-### Create a Stop
-
-1. `/m stop create station1 Central Station`  
-2. With the golden hoe, left/right click to mark the two corners of the station area  
-3. Run `/m stop setcorners station1` to apply the selection  
-4. On the powered rail, run `/m stop setpoint`  
-5. `/m line addstop line1 station1`
-
-### Player Usage
-
-Players right-click the powered rail inside a Stop to summon and board a minecart. The system will handle travel, stops, and arrivals automatically.
-
-## Permissions
-
-| Permission         | Default | Description                                      |
-| :----------------- | :------ | :----------------------------------------------- |
-| `metro.admin`      | OP      | Allows use of all admin commands, including teleport access |
-| `metro.use`        | Everyone | Allows players to use the subway system         |
-| `metro.gui`        | Everyone | Allows players to open `/m gui`; visible actions are filtered by permission |
-| `metro.tp`         | false   | Allows players to teleport to stops through commands and the GUI |
-| `metro.line.create`| false   | Allows players to create new lines               |
-| `metro.stop.create`| false   | Allows players to create new stops               |
-| `metro.portal.create`| false | Allows players to create minecart portals         |
-
-## Ownership & Permission Flow
-
-* Newly created lines/stops/portals record the creator as owner and add them to the admin list.
-* `/m line trust/untrust/owner`, `/m stop trust/untrust/owner`, and `/m portal trust/untrust/owner` manage who can edit each resource.
-* `/m stop link allow/deny` controls which lines are whitelisted to use a stop; line admins must obtain authorization before running `/m line addstop`.
-* Portals can exist independently; line admins use `/m line addportal/delportal` to control whether a line can use a portal.
-* Legacy data without ownership entries is treated as server-owned and can only be modified by OPs or players with `metro.admin`.
-
-## Configuration Files
-
-* `config.yml` – Global settings (display templates, sounds, minecart behavior)  
-* `lines.yml` – Line definitions and ordering  
-* `stops.yml` – Stop definitions and properties  
-* `zh_CN.yml` – Chinese language file  
-
-## Build Targets
-
-- **Build the plugin**: `mvn clean package`
-  - Produces `target/metro-<version>.jar`
-  - The current version comes from `pom.xml`, for example `target/metro-1.1.7.jar`
-
-The repository is now a single-module Maven project targeting Java 17 and 1.18+ servers, with Paper/Folia compatibility logic included.
-
+![](https://bstats.org/signatures/bukkit/Metro.svg)
+[![](https://img.shields.io/github/stars/CubeX-MC/Metro?style=social)](https://github.com/CubeX-MC/Metro/stargazers) [![](https://img.shields.io/github/forks/CubeX-MC/Metro?style=social)](https://github.com/CubeX-MC/Metro/network/members)
