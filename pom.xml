@@ -313,6 +313,7 @@
                 <configuration>
                     <source>${java.release}</source>
                     <encoding>${project.build.sourceEncoding}</encoding>
+                    <doclint>none</doclint>
                     <failOnError>false</failOnError>
                     <failOnWarnings>false</failOnWarnings>
                     <quiet>true</quiet>
