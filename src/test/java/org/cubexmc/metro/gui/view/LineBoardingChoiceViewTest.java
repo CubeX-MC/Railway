@@ -27,7 +27,7 @@ class LineBoardingChoiceViewTest {
 
         when(plugin.getLanguageManager()).thenReturn(languageManager);
         when(plugin.getTicketService()).thenReturn(ticketService);
-        when(player.hasPermission("metro.use")).thenReturn(false);
+        when(player.hasPermission("railway.use")).thenReturn(false);
         when(languageManager.getMessage("gui.line_boarding.no_permission")).thenReturn("No permission");
 
         String reason = invokeBlockReason(new LineBoardingChoiceView(plugin), player, line);

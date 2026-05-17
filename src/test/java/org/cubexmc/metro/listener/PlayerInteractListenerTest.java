@@ -109,7 +109,7 @@ class PlayerInteractListenerTest {
     void shouldRejectSelectedLineWhenPlayerCannotUseMetro() {
         Fixtures fixtures = new Fixtures();
 
-        when(fixtures.player.hasPermission("metro.use")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.use")).thenReturn(false);
         when(fixtures.languageManager.getMessage("interact.no_permission")).thenReturn("no ride permission");
 
 

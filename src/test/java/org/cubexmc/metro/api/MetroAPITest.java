@@ -190,7 +190,7 @@ class MetroAPITest {
         portal.setOwner(ownerId);
 
         when(player.getUniqueId()).thenReturn(ownerId);
-        when(player.hasPermission("metro.admin")).thenReturn(false);
+        when(player.hasPermission("railway.admin")).thenReturn(false);
         when(lineManager.getLine("red")).thenReturn(line);
         when(stopManager.getStop("central")).thenReturn(stop);
         when(portalManager.getPortal("p1")).thenReturn(portal);

@@ -72,7 +72,7 @@ class ConfirmActionControllerTest {
         when(plugin.getLineManager()).thenReturn(lineManager);
         when(plugin.getStopManager()).thenReturn(stopManager);
         when(lineManager.getLine("red")).thenReturn(line);
-        when(player.hasPermission("metro.admin")).thenReturn(false);
+        when(player.hasPermission("railway.admin")).thenReturn(false);
         when(player.isOp()).thenReturn(false);
         when(languageManager.getMessage("ownership.server")).thenReturn("Server");
         when(languageManager.getMessage("ownership.none")).thenReturn("None");

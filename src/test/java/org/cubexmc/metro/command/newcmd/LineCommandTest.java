@@ -28,7 +28,7 @@ class LineCommandTest {
 
         when(plugin.getLanguageManager()).thenReturn(languageManager);
         when(lineManager.getLine("red")).thenReturn(line);
-        when(player.hasPermission("metro.admin")).thenReturn(false);
+        when(player.hasPermission("railway.admin")).thenReturn(false);
         when(player.isOp()).thenReturn(true);
         when(languageManager.getMessage("command.confirm_required")).thenReturn("confirm required");
         when(languageManager.getMessage(eq("command.confirm_hint"), anyMap())).thenReturn("run command");

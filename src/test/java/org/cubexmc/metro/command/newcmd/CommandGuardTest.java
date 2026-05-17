@@ -81,10 +81,10 @@ class CommandGuardTest {
     @Test
     void shouldSendNoPermissionWhenPermissionIsMissing() {
         Fixtures fixtures = new Fixtures();
-        when(fixtures.player.hasPermission("metro.tp")).thenReturn(false);
+        when(fixtures.player.hasPermission("railway.tp")).thenReturn(false);
         when(fixtures.languageManager.getMessage("plugin.no_permission")).thenReturn("no permission");
 
-        assertFalse(fixtures.guard.requirePermission(fixtures.player, "metro.tp"));
+        assertFalse(fixtures.guard.requirePermission(fixtures.player, "railway.tp"));
 
         verify(fixtures.player).sendMessage("no permission");
     }

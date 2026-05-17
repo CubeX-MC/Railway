@@ -113,7 +113,7 @@ public class StopCommand {
     @Command("rw|railway stop|s tp <stopId>")
     @CommandDescription("Teleport to a metro stop")
     public void tp(Player player, @Argument(value = "stopId", suggestions = "stopIds") String id) {
-        if (!guard.requirePermission(player, "metro.tp")) {
+        if (!guard.requirePermission(player, "railway.tp")) {
             return;
         }
         Stop stop = guard.requireStop(player, id);

@@ -172,7 +172,7 @@ public class PlayerInteractListener implements Listener {
      */
     private boolean checkAndHandleStopPoint(Player player, Location location) {
 
-        if (!player.hasPermission("metro.use")) {
+        if (!player.hasPermission("railway.use")) {
             player.sendMessage(plugin.getLanguageManager().getMessage("interact.no_permission"));
 
             return false;
@@ -228,7 +228,7 @@ public class PlayerInteractListener implements Listener {
      */
     public void boardSelectedLine(Player player, String stopId, String lineId) {
 
-        if (!player.hasPermission("metro.use")) {
+        if (!player.hasPermission("railway.use")) {
             player.sendMessage(plugin.getLanguageManager().getMessage("interact.no_permission"));
 
             return;

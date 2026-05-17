@@ -23,7 +23,7 @@ class StopCommandTest {
         Player player = mock(Player.class);
 
         when(plugin.getLanguageManager()).thenReturn(languageManager);
-        when(player.hasPermission("metro.tp")).thenReturn(false);
+        when(player.hasPermission("railway.tp")).thenReturn(false);
         when(languageManager.getMessage("plugin.no_permission")).thenReturn("no permission");
 
         new StopCommand(plugin, stopManager, lineManager).tp(player, "central");
