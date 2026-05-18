@@ -10,6 +10,8 @@ description: A simple railway management system / 一个简单的铁路管理系
 website: https://cubexmc.org
 softdepend:
   - ViaVersion
+  - Geyser-Spigot
+  - floodgate
   - Vault
   - BlueMap
   - dynmap
