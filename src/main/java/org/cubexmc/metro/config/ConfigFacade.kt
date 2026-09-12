@@ -120,6 +120,7 @@ class ConfigFacade(private val plugin: Metro) {
     private var safeModeMinCruiseSpeed = 0.0
     private var safeModeStallRecoveryTicks = 0L
     private var economyEnabled = false
+    private var economyAccount = ""
 
     private var selectionTool: Material = Material.GOLDEN_SHOVEL
     private var selectionToolName = ""
@@ -305,6 +306,7 @@ class ConfigFacade(private val plugin: Metro) {
         safeModeMinCruiseSpeed = plugin.config.getDouble("settings.safe_mode.min_cruise_speed", 0.08)
         safeModeStallRecoveryTicks = plugin.config.getLong("settings.safe_mode.stall_recovery_ticks", 8L)
         economyEnabled = plugin.config.getBoolean("economy.enabled", true)
+        economyAccount = plugin.config.getString("economy.account", "") ?: ""
 
         val toolName = plugin.config.getString("settings.selection_tool", "GOLDEN_SHOVEL") ?: "GOLDEN_SHOVEL"
         selectionTool = try {
@@ -501,6 +503,13 @@ class ConfigFacade(private val plugin: Metro) {
     fun getSafeModeStallRecoveryTicks(): Long = safeModeStallRecoveryTicks
 
     fun isEconomyEnabled(): Boolean = economyEnabled
+
+    /**
+     * Where fares from lines **without an owner** are paid in.
+     * Empty keeps the old behaviour: the money is destroyed.
+     * Owned lines are unaffected - they still pay their owner.
+     */
+    fun getEconomyAccount(): String = economyAccount
 
     fun isDebugCategoryEnabled(category: String?): Boolean {
         if (!isDebugEnabled() || category == null || category.isEmpty()) {

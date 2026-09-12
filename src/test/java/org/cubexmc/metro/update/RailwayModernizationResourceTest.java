@@ -95,6 +95,50 @@ class RailwayModernizationResourceTest {
         assertEquals("<green>Default <line_id>", yaml.getString("new_default"));
     }
 
+    @Test
+    void migrationStepsFormAnUnbrokenChainToTheCurrentConfigVersion() {
+        Metro plugin = mock(Metro.class);
+
+        assertEquals(1, new MetroConfigModernizationStep(plugin).fromVersion());
+        assertEquals(new MetroConfigModernizationStep(plugin).toVersion(),
+                new MetroEconomyAccountStep().fromVersion(),
+                "a version with no step leaves upgraded servers without the new keys");
+        assertEquals(MetroMigrations.CONFIG_VERSION, new MetroEconomyAccountStep().toVersion());
+    }
+
+    @Test
+    void economyAccountStepAddsTheNewKeyWithoutChangingFares() {
+        YamlConfiguration yaml = yamlOf("""
+                config-version: 2
+                economy:
+                  enabled: true
+                """);
+
+        new MetroEconomyAccountStep().migrate(new SimpleMigrationContext("config.yml", yaml));
+
+        // Empty = the pre-v3 behaviour (fares from unowned lines are destroyed).
+        assertEquals("", yaml.getString("economy.account"));
+        assertTrue(yaml.getBoolean("economy.enabled"));
+    }
+
+    @Test
+    void economyAccountStepKeepsAnAccountTheOwnerAlreadyConfigured() {
+        YamlConfiguration yaml = yamlOf("""
+                config-version: 2
+                economy:
+                  account: 'name:cubex_bank'
+                """);
+
+        new MetroEconomyAccountStep().migrate(new SimpleMigrationContext("config.yml", yaml));
+
+        assertEquals("name:cubex_bank", yaml.getString("economy.account"));
+    }
+
+    private YamlConfiguration yamlOf(String content) {
+        return YamlConfiguration.loadConfiguration(new InputStreamReader(
+                new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8));
+    }
+
     private YamlConfiguration load(String resourcePath) {
         InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourcePath);
         assertTrue(inputStream != null, () -> "Missing resource: " + resourcePath);

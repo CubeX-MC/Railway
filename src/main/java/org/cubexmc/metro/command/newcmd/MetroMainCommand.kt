@@ -76,6 +76,7 @@ class MetroMainCommand(
         }
         plugin.reloadConfig()
         plugin.configFacade.reload()
+        plugin.applyEconomyAccount()
         DataFileUpdater.migrateAll(plugin)
         lineManager.reload()
         stopManager.reload()

@@ -9,7 +9,7 @@ import org.cubexmc.metro.Metro
 
 object MetroMigrations {
 
-    const val CONFIG_VERSION = 2
+    const val CONFIG_VERSION = 3
     const val LANG_VERSION = 2
 
     @JvmField
@@ -34,7 +34,8 @@ object MetroMigrations {
                 .missingVersion(1)
                 .targetVersion(CONFIG_VERSION)
                 .failurePolicy(MigrationFailurePolicy.ABORT)
-                .addStep(MetroConfigModernizationStep(plugin)),
+                .addStep(MetroConfigModernizationStep(plugin))
+                .addStep(MetroEconomyAccountStep()),
         )
     }
 

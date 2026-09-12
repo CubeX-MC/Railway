@@ -11,7 +11,9 @@ import org.cubexmc.metro.util.MetroTextRenderer
 class MetroConfigModernizationStep(private val plugin: Metro) : MigrationStep {
     override fun fromVersion(): Int = 1
 
-    override fun toVersion(): Int = MetroMigrations.CONFIG_VERSION
+    // Pinned to 2, not CONFIG_VERSION: this step is what v1 -> v2 means. Letting it follow the
+    // constant would silently swallow every later version bump into one 1 -> N jump.
+    override fun toVersion(): Int = 2
 
     override fun description(): String = "Convert Railway config display templates to MiniMessage and merge v2 defaults."
 

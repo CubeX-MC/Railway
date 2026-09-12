@@ -15,6 +15,7 @@ import org.cubexmc.metro.estimation.TravelTimeEstimator
 import org.cubexmc.metro.gui.ChatInputManager
 import org.cubexmc.metro.gui.GuiListener
 import org.cubexmc.metro.gui.GuiManager
+import org.cubexmc.economy.EconomyAccount
 import org.cubexmc.metro.integration.VaultIntegration
 import org.cubexmc.metro.lifecycle.CommandRegistration
 import org.cubexmc.metro.lifecycle.ListenerRegistration
@@ -198,6 +199,7 @@ class Metro : CubexPlugin() {
         } else {
             logger.info("Vault economy not found or disabled.")
         }
+        applyEconomyAccount()
         ticketService = TicketService({ vaultIntegration }, { config.getBoolean("economy.enabled", true) })
 
         priceService = PriceService()
@@ -420,6 +422,27 @@ class Metro : CubexPlugin() {
             if (stop.isInStop(playerLocation) || playerLocation.distanceSquared(base) <= radiusSquared) return true
         }
         return false
+    }
+
+    /**
+     * Resolves `economy.account` - where a fare goes when the line has no owner.
+     *
+     * Called on enable and on every reload, never per fare: resolving a player
+     * name can hit the profile cache. A broken value does not stop the plugin;
+     * `VaultEconomy` logs it loudly and fares keep working (the money is lost
+     * the same way it was before this key existed).
+     */
+    fun applyEconomyAccount() {
+        val economy = vaultIntegration ?: return
+        val account = try {
+            EconomyAccount.parse(configFacade.getEconomyAccount())
+        } catch (ex: IllegalArgumentException) {
+            logger.severe(
+                "Railway economy.account is invalid; fares from unowned lines will not be banked. ${ex.message}",
+            )
+            EconomyAccount.None
+        }
+        economy.useAccount(account)
     }
 
     fun flushPersistentData() {
