@@ -1,6 +1,6 @@
 package org.cubexmc.metro.manager
 
-import org.bukkit.configuration.file.YamlConfiguration
+import org.cubexmc.core.Reloadable
 import org.cubexmc.i18n.ColorMode
 import org.cubexmc.i18n.I18nOptions
 import org.cubexmc.i18n.I18nService
@@ -12,23 +12,26 @@ import org.cubexmc.metro.update.LanguageUpdater
 import org.cubexmc.metro.update.MetroMigrations
 import org.cubexmc.metro.util.MetroTextRenderer
 import java.io.File
-import java.io.InputStreamReader
-import java.nio.charset.StandardCharsets
-import java.util.logging.Level
 
-/** 管理多语言消息。 */
+/**
+ * Railway's view of the shared [I18nService].
+ *
+ * Every lookup goes through the service's locale chain (configured language, then `zh_CN`,
+ * `en_US`, then the other bundled locales), and each file on disk is backed by the copy bundled in
+ * the jar. A key missing from a server's translation therefore falls back instead of rendering as
+ * `Missing message: ...`. Rendering stays with [MetroTextRenderer], which also handles the legacy
+ * `{name}` placeholders and `&` colour codes the language files still use.
+ */
 class LanguageManager(
     private val plugin: Metro,
-) {
-    private val languageFiles: MutableMap<String, YamlConfiguration> = HashMap()
-    private var defaultLanguage = "zh_CN"
-    private var currentLanguage = "zh_CN"
+) : Reloadable {
+    private var currentLanguage = DEFAULT_LANGUAGE
     private val i18n: I18nService = I18nServices.create(
         plugin,
         I18nOptions.create()
             .languageDirectory("lang")
             .currentLocale { currentLanguage }
-            .defaultLocale(defaultLanguage)
+            .defaultLocale(DEFAULT_LANGUAGE)
             .fallbackLocales(listOf("en_US", "zh_CN"))
             .bundledLocales(MetroMigrations.BUNDLED_LANGUAGES)
             .prefixToken("<prefix>")
@@ -43,48 +46,22 @@ class LanguageManager(
         loadLanguages()
     }
 
+    /** Reload stage: re-reads `settings.default_language` and every language file. */
+    override fun reload() = loadLanguages()
+
     fun loadLanguages() {
-        languageFiles.clear()
-        defaultLanguage = plugin.config.getString("settings.default_language", "zh_CN") ?: "zh_CN"
-        currentLanguage = defaultLanguage
+        currentLanguage = plugin.config.getString("settings.default_language", DEFAULT_LANGUAGE) ?: DEFAULT_LANGUAGE
 
         val languageDirectory = File(plugin.dataFolder, "lang")
         if (!languageDirectory.exists()) {
             languageDirectory.mkdirs()
         }
-        val bundledLanguages = arrayOf("zh_CN", "zh_TW", "en_US", "de_DE", "es_ES", "nl_NL", "tr_TR")
-        for (language in bundledLanguages) {
+        for (language in MetroMigrations.BUNDLED_LANGUAGES) {
             saveDefaultLanguageFile(language)
         }
 
-        val files = languageDirectory.listFiles { _, name -> name.endsWith(".yml") }
-        if (files != null) {
-            for (file in files) {
-                val languageCode = file.name.replace(".yml", "")
-                try {
-                    languageFiles[languageCode] = YamlConfiguration.loadConfiguration(file)
-                    plugin.logger.info("已加载语言文件: $languageCode")
-                } catch (exception: Exception) {
-                    plugin.logger.log(Level.WARNING, "加载语言文件失败: ${file.name}", exception)
-                }
-            }
-        }
-
-        if (!languageFiles.containsKey(defaultLanguage)) {
-            try {
-                plugin.getResource("lang/$defaultLanguage.yml")?.use { inputStream ->
-                    val defaultConfig = YamlConfiguration.loadConfiguration(
-                        InputStreamReader(inputStream, StandardCharsets.UTF_8),
-                    )
-                    languageFiles[defaultLanguage] = defaultConfig
-                    plugin.logger.info("Loaded default language: $defaultLanguage")
-                }
-            } catch (exception: Exception) {
-                plugin.logger.log(Level.WARNING, "Failed to load default language: $defaultLanguage", exception)
-            }
-        }
-        i18n.setCurrentLocale(currentLanguage)
         i18n.reload()
+        plugin.logger.info("Language: $currentLanguage")
     }
 
     private fun saveDefaultLanguageFile(languageCode: String) {
@@ -113,18 +90,12 @@ class LanguageManager(
     fun getMessage(key: String, namedArguments: Map<String, Any?>): String =
         MetroTextRenderer.render(rawMessage(key, currentLanguage), namedArguments)
 
-    private fun rawMessage(key: String, languageCode: String): String {
-        var languageConfig = languageFiles[languageCode]
-        if (languageConfig == null || !languageConfig.contains(key)) {
-            languageConfig = languageFiles[defaultLanguage]
-        }
-        if (languageConfig != null && languageConfig.contains(key)) {
-            return languageConfig.getString(key, "") ?: ""
-        }
-        return "Missing message: $key"
-    }
+    private fun rawMessage(key: String, languageCode: String): String =
+        i18n.rawOrNull(key, languageCode) ?: "Missing message: $key"
 
     companion object {
+        private const val DEFAULT_LANGUAGE = "zh_CN"
+
         @JvmStatic
         fun args(): MutableMap<String, Any?> = HashMap()
 
