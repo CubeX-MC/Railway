@@ -56,11 +56,20 @@ class SaveCoordinator(
         return version
     }
 
+    /**
+     * Writes [snapshot] synchronously, after any pending async write for the same file.
+     *
+     * Unlike the async path this reports a final failure to the caller: `forceSaveSync` keeps the
+     * store dirty on a throw, which is what lets `/m reload` refuse to reload that store from a
+     * disk copy that is older than memory.
+     */
+    @Throws(IOException::class)
     fun saveNow(targetFile: Path, snapshot: String) {
         val normalizedTarget = normalize(targetFile)
         flush(normalizedTarget)
         val version = nextVersion(normalizedTarget)
-        writeSnapshot(normalizedTarget, version, snapshot)
+        val error = writeSnapshot(normalizedTarget, version, snapshot) ?: return
+        throw IOException("Giving up saving $normalizedTarget at version $version", error)
     }
 
     fun flush(targetFile: Path) {
@@ -88,24 +97,23 @@ class SaveCoordinator(
             logger.fine("Skipping stale save for $targetFile at version $version")
             return
         }
-        writeSnapshot(targetFile, version, snapshot)
+        val error = writeSnapshot(targetFile, version, snapshot) ?: return
+        logger.log(Level.SEVERE, "Giving up saving $targetFile at version $version", error)
     }
 
-    private fun writeSnapshot(targetFile: Path, version: Long, snapshot: String) {
+    /** Returns the last write error once every attempt has failed, or `null` on success. */
+    private fun writeSnapshot(targetFile: Path, version: Long, snapshot: String): IOException? {
         var lastError: IOException? = null
         for (attempt in 1..MAX_WRITE_ATTEMPTS) {
             try {
                 writeAtomically(targetFile, version, snapshot)
-                return
+                return null
             } catch (ex: IOException) {
                 lastError = ex
                 logger.log(Level.WARNING, "Failed to save $targetFile at version $version (attempt $attempt/$MAX_WRITE_ATTEMPTS)", ex)
             }
         }
-
-        if (lastError != null) {
-            logger.log(Level.SEVERE, "Giving up saving $targetFile at version $version", lastError)
-        }
+        return lastError
     }
 
     private fun writeAtomically(targetFile: Path, version: Long, snapshot: String) {

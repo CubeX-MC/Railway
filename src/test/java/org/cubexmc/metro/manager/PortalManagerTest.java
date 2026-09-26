@@ -125,7 +125,7 @@ class PortalManagerTest {
     }
 
     @Test
-    void forceSaveShouldRetryAfterCoordinatorFailure() {
+    void forceSaveShouldRetryAfterCoordinatorFailure() throws IOException {
         SaveCoordinator coordinator = mock(SaveCoordinator.class);
         doThrow(new RuntimeException("boom")).when(coordinator).saveNow(any(Path.class), anyString());
         PortalManager manager = new PortalManager(createPluginMock(tempDir, coordinator));

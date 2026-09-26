@@ -2,6 +2,7 @@ package org.cubexmc.metro.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -56,6 +57,16 @@ class SaveCoordinatorTest {
         coordinator.saveNow(target, "value: 1\n");
 
         assertEquals("value: 1\n", Files.readString(target));
+    }
+
+    @Test
+    void synchronousSaveShouldReportFailureOnceRetriesAreExhausted() throws IOException {
+        SaveCoordinator coordinator = new SaveCoordinator(Logger.getLogger("SaveCoordinatorTest"), Runnable::run);
+        Path blocker = tempDir.resolve("blocker");
+        Files.writeString(blocker, "not a directory");
+
+        // The parent "directory" is a regular file, so every attempt fails.
+        assertThrows(IOException.class, () -> coordinator.saveNow(blocker.resolve("lines.yml"), "value: 1\n"));
     }
 
     private static final class ManualExecutor implements Executor {
