@@ -9,6 +9,8 @@ import java.util.logging.Level
 import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.configuration.file.YamlConfiguration
+import org.cubexmc.core.Reloadable
+import org.cubexmc.core.Terminable
 import org.cubexmc.metro.Metro
 import org.cubexmc.metro.control.TrainControlMode
 import org.cubexmc.metro.model.Line
@@ -20,7 +22,7 @@ import org.cubexmc.metro.update.DataFileUpdater
 /**
  * 线路管理器，负责线路数据的加载、保存和操作
  */
-class LineManager(private val plugin: Metro) {
+class LineManager(private val plugin: Metro) : Reloadable, Terminable {
     private val configFile: File = File(plugin.dataFolder, "lines.yml")
     private lateinit var config: FileConfiguration
     private val lines: MutableMap<String, Line> = HashMap()
@@ -228,6 +230,12 @@ class LineManager(private val plugin: Metro) {
         }
     }
 
+    /** `true` while a change is still only in memory, e.g. after a failed [forceSaveSync]. */
+    fun hasUnsavedChanges(): Boolean = isDirty
+
+    /** Bound to the plugin lifecycle: flushes pending changes to `lines.yml` on disable. */
+    override fun close() = forceSaveSync()
+
     fun tick() {
     }
 
@@ -362,7 +370,7 @@ class LineManager(private val plugin: Metro) {
         }
     }
 
-    fun reload() {
+    override fun reload() {
         loadConfig()
         plugin.railProtectionManager?.rebuildAll()
     }

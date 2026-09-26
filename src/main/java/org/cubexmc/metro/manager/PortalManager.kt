@@ -15,6 +15,8 @@ import org.bukkit.entity.Minecart
 import org.bukkit.entity.Player
 import org.bukkit.persistence.PersistentDataType
 import org.bukkit.util.Vector
+import org.cubexmc.core.Reloadable
+import org.cubexmc.core.Terminable
 import org.cubexmc.metro.Metro
 import org.cubexmc.metro.model.Portal
 import org.cubexmc.metro.train.TrainMovementTask
@@ -25,7 +27,7 @@ import org.cubexmc.metro.util.SchedulerUtil
 /**
  * 管理矿车传送门的加载、保存、查询和传送逻辑。
  */
-class PortalManager(private val plugin: Metro) {
+class PortalManager(private val plugin: Metro) : Reloadable, Terminable {
     private val portalFile: File = File(plugin.dataFolder, "portals.yml")
     private var portalConfig: YamlConfiguration? = null
     private val portals: MutableMap<String, Portal> = HashMap()
@@ -60,6 +62,9 @@ class PortalManager(private val plugin: Metro) {
         }
     }
 
+    /** Reload stage: re-reads `portals.yml`, dropping anything that is only in memory. */
+    override fun reload() = load()
+
     fun save() {
         isDirty = true
     }
@@ -91,6 +96,12 @@ class PortalManager(private val plugin: Metro) {
             plugin.logger.log(Level.SEVERE, "[Portal] Failed to save portals.yml", exception)
         }
     }
+
+    /** `true` while a change is still only in memory, e.g. after a failed [forceSaveSync]. */
+    fun hasUnsavedChanges(): Boolean = isDirty
+
+    /** Bound to the plugin lifecycle: flushes pending changes to `portals.yml` on disable. */
+    override fun close() = forceSaveSync()
 
     fun createPortal(id: String, entrance: Location, ownerId: UUID?): Portal {
         val portal = Portal(id)

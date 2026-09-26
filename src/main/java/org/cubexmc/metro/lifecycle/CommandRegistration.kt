@@ -54,7 +54,7 @@ class CommandRegistration(
 
             registerSuggestionProviders(commandManager)
             annotationParser.parse(
-                MetroMainCommand(plugin, lineManager, stopManager),
+                MetroMainCommand(plugin),
                 LineCommand(plugin, lineManager, stopManager),
                 StopCommand(plugin, stopManager, lineManager),
                 PortalCommand(plugin),

@@ -10,6 +10,8 @@ import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.util.BoundingBox
+import org.cubexmc.core.Reloadable
+import org.cubexmc.core.Terminable
 import org.cubexmc.metro.Metro
 import org.cubexmc.metro.model.Stop
 import org.cubexmc.spatial.Octree
@@ -20,7 +22,7 @@ import org.cubexmc.metro.update.DataFileUpdater
 /**
  * 管理停靠区数据的加载、保存和访问
  */
-class StopManager(private val plugin: Metro) {
+class StopManager(private val plugin: Metro) : Reloadable, Terminable {
     private val configFile: File = File(plugin.dataFolder, "stops.yml")
     private lateinit var config: FileConfiguration
     private val stops: MutableMap<String, Stop> = HashMap()
@@ -110,6 +112,12 @@ class StopManager(private val plugin: Metro) {
             plugin.logger.log(Level.SEVERE, "Could not save stops config", exception)
         }
     }
+
+    /** `true` while a change is still only in memory, e.g. after a failed [forceSaveSync]. */
+    fun hasUnsavedChanges(): Boolean = isDirty
+
+    /** Bound to the plugin lifecycle: flushes pending changes to `stops.yml` on disable. */
+    override fun close() = forceSaveSync()
 
     fun createStop(
         stopId: String?,
@@ -394,7 +402,7 @@ class StopManager(private val plugin: Metro) {
         }
     }
 
-    fun reload() {
+    override fun reload() {
         loadConfig()
     }
 

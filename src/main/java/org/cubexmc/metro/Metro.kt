@@ -8,7 +8,11 @@ import org.bukkit.Location
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Minecart
 import org.bukkit.persistence.PersistentDataType
+import org.cubexmc.config.ReloadChain
+import org.cubexmc.config.ReloadFailurePolicy
+import org.cubexmc.config.ReloadReport
 import org.cubexmc.core.CubexPlugin
+import org.cubexmc.core.Reloadable
 import org.cubexmc.metro.api.MetroAPI
 import org.cubexmc.metro.config.ConfigFacade
 import org.cubexmc.metro.estimation.TravelTimeEstimator
@@ -146,7 +150,8 @@ class Metro : CubexPlugin() {
 
     @Throws(Exception::class)
     override fun enablePlugin() {
-        bindShutdownActions()
+        // Terminables close in reverse bind order: this message is bound first so it is logged last.
+        bindDisabledMessage()
 
         // 创建配置目录
         if (!dataFolder.exists()) {
@@ -169,13 +174,15 @@ class Metro : CubexPlugin() {
         MetroMigrations.migrateBundledLanguages(this)
         languageManager = LanguageManager(this)
         saveCoordinator = SaveCoordinator(logger) { command -> SchedulerUtil.asyncRun(this, command, 0L) }
+        // Bound before the stores, so it closes after them and waits for their last async writes.
+        bind(Runnable { saveCoordinator.flushAll() })
 
-        // 初始化管理器
-        lineManager = LineManager(this)
+        // 初始化管理器。数据 store 都是 Terminable，bind() 负责关服时存盘
+        lineManager = bind(LineManager(this))
         val protectionManager = RailProtectionManager(this)
         railProtectionManager = protectionManager
         protectionManager.rebuildAll()
-        stopManager = StopManager(this)
+        stopManager = bind(StopManager(this))
         lineSelectionService = LineSelectionService(lineManager, stopManager)
         selectionManager = SelectionManager()
         guiManager = GuiManager(this)
@@ -188,8 +195,11 @@ class Metro : CubexPlugin() {
         lineServiceManager = LineServiceManager(this)
 
         // 初始化传送门管理器
-        val portals = PortalManager(this)
+        val portals = bind(PortalManager(this))
         portalManager = portals
+
+        // Bound after every store, so trains, displays and integrations stop before data is flushed.
+        bindRuntimeShutdown()
 
         // 初始化经济集成
         val economy = VaultIntegration(this)
@@ -273,10 +283,10 @@ class Metro : CubexPlugin() {
     }
 
     override fun disablePlugin() {
-        // 关闭动作全部通过 bindShutdownActions() 注册
+        // 关闭动作全部经 bind() 注册：bindRuntimeShutdown() → 各 store → SaveCoordinator → 停用消息
     }
 
-    private fun bindShutdownActions() {
+    private fun bindDisabledMessage() {
         bind {
             if (::languageManager.isInitialized) {
                 Bukkit.getConsoleSender().sendMessage(languageManager.getMessage("plugin.disabled"))
@@ -284,7 +294,9 @@ class Metro : CubexPlugin() {
                 logger.info("Metro plugin disabled.")
             }
         }
-        bind { flushPersistentData() }
+    }
+
+    private fun bindRuntimeShutdown() {
         bind {
             if (::routeRecorder.isInitialized) {
                 routeRecorder.cancelAll()
@@ -445,17 +457,78 @@ class Metro : CubexPlugin() {
         economy.useAccount(account)
     }
 
-    fun flushPersistentData() {
-        if (::lineManager.isInitialized) {
-            lineManager.forceSaveSync()
+    /**
+     * Writes every dirty store to disk now.
+     *
+     * @return `false` when a store still holds changes that could not be written.
+     */
+    fun flushPersistentData(): Boolean {
+        lineManager.forceSaveSync()
+        stopManager.forceSaveSync()
+        portalManager.forceSaveSync()
+        saveCoordinator.flushAll()
+        return !lineManager.hasUnsavedChanges() &&
+            !stopManager.hasUnsavedChanges() &&
+            !portalManager.hasUnsavedChanges()
+    }
+
+    /**
+     * Reloads config, language and on-disk data as a named [ReloadChain].
+     *
+     * Two ordering rules are expressed by the chain instead of hand-rolled flags:
+     *
+     * - the stages that re-read `lines.yml` / `stops.yml` / `portals.yml` (and the data migration
+     *   that rewrites them) are **gated** on the flush. Reloading from disk after a failed save
+     *   would silently replace changes that only exist in memory;
+     * - [ReloadFailurePolicy.ABORT]: nothing runs after a failed stage, so config or language is
+     *   never reloaded on top of a half-migrated file.
+     *
+     * Returns the report so the command can tell the operator which stage failed.
+     */
+    fun reloadRailway(): ReloadReport {
+        var flushed = true
+
+        val report = ReloadChain.create()
+            .failurePolicy(ReloadFailurePolicy.ABORT)
+            .add("flush-data", Reloadable {
+                flushed = flushPersistentData()
+                if (!flushed) {
+                    log().warn(
+                        "Reload: line/stop/portal changes could not be saved; " +
+                            "keeping them in memory and skipping the data stages.",
+                    )
+                }
+            })
+            .add("default-files", Reloadable { ensureDefaultConfigs() })
+            .add("config-migrations", Reloadable {
+                MetroMigrations.migrateConfig(this)
+                MetroMigrations.ensureEntityDefaults(this)
+                MetroMigrations.ensureLanguageResources(this)
+                MetroMigrations.migrateBundledLanguages(this)
+            })
+            .add("config", Reloadable {
+                reloadConfig()
+                configFacade.reload()
+                applyEconomyAccount()
+            })
+            .addIf("data-migrations", { flushed }, Reloadable { DataFileUpdater.migrateAll(this) })
+            .addIf("lines", { flushed }, lineManager)
+            .addIf("stops", { flushed }, stopManager)
+            .addIf("portals", { flushed }, portalManager)
+            .add("rail-protection", Reloadable { railProtectionManager?.rebuildAll() })
+            .add("language", languageManager)
+            .add("line-services", Reloadable { lineServiceManager.rebuildFromLines() })
+            .add("entity-models", Reloadable { entityModelController?.reload() })
+            .add("map-integrations", Reloadable { refreshMapIntegrations() })
+            .run()
+
+        for (summary in report.failureSummaries()) {
+            log().severe("Railway reload stage failed - $summary")
         }
-        if (::stopManager.isInitialized) {
-            stopManager.forceSaveSync()
+        if (report.skipped().isNotEmpty()) {
+            log().warn("Railway reload skipped stages: ${report.skipped().joinToString(", ")}")
         }
-        if (::portalManager.isInitialized) portalManager.forceSaveSync()
-        if (::saveCoordinator.isInitialized) {
-            saveCoordinator.flushAll()
-        }
+        return report
     }
 
     // Railway service configuration. Kotlin properties retain the original Java getter names.

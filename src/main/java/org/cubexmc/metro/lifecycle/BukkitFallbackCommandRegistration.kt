@@ -36,7 +36,7 @@ internal class BukkitFallbackCommandRegistration(
     private val entries: List<Entry> =
         discoverEntries(
             listOf(
-                MetroMainCommand(plugin, lineManager, stopManager),
+                MetroMainCommand(plugin),
                 LineCommand(plugin, lineManager, stopManager),
                 StopCommand(plugin, stopManager, lineManager),
                 PortalCommand(plugin),
