@@ -1,4 +1,4 @@
-# Metro Compatibility
+# Railway Compatibility
 
 ## Runtime Requirements
 
@@ -9,9 +9,9 @@
 
 ## Minecraft 26.1.2 Strategy
 
-- Metro keeps Java 17 bytecode and Spigot API 1.18.2 as the build baseline so one jar can continue to support 1.18+ servers.
+- Railway keeps Java 17 bytecode and Spigot API 1.18.2 as the build baseline so one jar can continue to support 1.18+ servers.
 - Minecraft/Paper 26.1.2 is treated as a runtime validation target, not as the compile API baseline.
-- Paper 26.1.2 servers require Java 25 at runtime. This does not require Metro to compile with Java 25 unless Metro intentionally adopts Java 25 language/runtime APIs.
+- Paper 26.1.2 servers require Java 25 at runtime. This does not require Railway to compile with Java 25 unless Railway intentionally adopts Java 25 language/runtime APIs.
 - Newer Paper-only APIs must stay behind reflection or compatibility adapters with older-version fallbacks.
 - Do not add NMS, CraftBukkit, or versioned server package references for this compatibility work.
 
@@ -27,7 +27,7 @@ Smoke tests should cover plugin startup, Cloud command registration, GUI opening
 
 - Spigot: supported for core gameplay and administration features.
 - Paper: supported and recommended for production servers.
-- Folia: marked `folia-supported: true`; Metro uses `SchedulerUtil` to route entity, region, global, and async work through Folia APIs when available.
+- Folia: marked `folia-supported: true`; Railway uses `SchedulerUtil` to route entity, region, global, and async work through Folia APIs when available.
 
 ## Optional Dependencies
 
@@ -37,7 +37,7 @@ Smoke tests should cover plugin startup, Cloud command registration, GUI opening
 - squaremap: optional map marker integration.
 - ViaVersion: optional soft dependency for mixed-client environments.
 - Geyser-Spigot and floodgate: optional soft dependencies used only for
-  Bedrock-player detection. Metro keeps these integrations optional through
+  Bedrock-player detection. Railway keeps these integrations optional through
   reflection; when detected, mount-aware teleport flows use more conservative
   dismount and remount delays for Bedrock passengers.
 
@@ -46,4 +46,4 @@ Smoke tests should cover plugin startup, Cloud command registration, GUI opening
 - Entity work should run through entity scheduling.
 - World/block work should run through region scheduling.
 - Async work must not access Bukkit worlds, entities, blocks, inventories, or player state.
-- On shutdown, Metro cleans active train sessions through its train registry. Paper/Bukkit additionally run a fallback world scan for old Metro minecart leftovers; Folia schedules active train cleanup on each minecart's entity scheduler and skips that fallback scan to avoid unsafe cross-region access.
+- On shutdown, Railway cleans active train sessions through its train registry. Paper/Bukkit additionally run a fallback world scan for old Railway minecart leftovers; Folia schedules active train cleanup on each minecart's entity scheduler and skips that fallback scan to avoid unsafe cross-region access.

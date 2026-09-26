@@ -1,4 +1,4 @@
-# Metro Release Notes Template
+# Railway Release Notes Template
 
 ## Added
 
@@ -31,6 +31,6 @@
 
 ## Verification
 
-- `mvn verify`:
+- `.gradlew.bat :Railway:build` + `:Railway:jarGate`:
 - Manual baseline:
 - Upgrade/reload check:

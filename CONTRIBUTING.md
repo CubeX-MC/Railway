@@ -1,39 +1,35 @@
-# Contributing to Metro
+# Contributing to Railway
+
+Railway lives in the CubeX-Plugins monorepo. Start with the root `AGENTS.md`: it lists the build
+commands, the hard constraints (embedded packaging, no inter-plugin compile dependencies), and the
+decisions not to "fix" — including that Railway intentionally keeps the `org.cubexmc.metro` package.
 
 ## Local Setup
 
 - Use Java 17.
-- Use Maven 3.9+.
-- Run `mvn test` before opening a PR.
-- Run `mvn verify` to include coverage and SpotBugs gates.
-
-## Agent Workflow
-
-- Start from `AGENTS.md`.
-- Use `docs/agent-pipeline.md` for the reusable development workflow.
-- Use `docs/agent-project-profile.md` for Metro-specific architecture, runtime,
-  and verification rules.
-- Use `docs/agent-verification-matrix.md` to scale testing to risk.
-- For high-risk changes, record evidence using
-  `docs/agent-evidence-template.md`.
+- Build from the repository root. On Windows use PowerShell (the path contains spaces):
+  - `.\gradlew.bat :Railway:build` — compile, test, and build the deployable jar.
+  - `.\gradlew.bat :Railway:test --tests "..."` — run a filtered subset of tests.
+  - `.\gradlew.bat :Railway:jarGate` — check the deployable jar.
 
 ## Branch and PR Rules
 
 - Keep each PR focused on one concern (tests, refactor, bugfix, docs).
-- Prefer small, reviewable commits.
-- Do not mix behavior changes with formatting-only edits.
+- Prefer small, reviewable commits scoped to `Railway/`.
+- Do not mix refactors with gameplay, config, or wording changes.
 - Include a short test plan in each PR description.
 
 ## Required Checks
 
 - CI must pass on `main` and on your branch.
-- Coverage and SpotBugs checks must pass.
 - For runtime-impacting changes, run manual checks from `docs/regression-baseline.md`.
 
 ## Coding Conventions
 
+- Follow the root `KOTLIN_STYLE_GUIDE.md` and `COMMAND_PERMISSION_GUIDE.md`.
+- Shared helpers live in `modules/cubex-*`; if one is missing a capability, extend the module
+  instead of adding a local copy (see `docs/architecture.md`).
 - Keep command handlers small and route-only in entry classes.
-- Avoid adding new magic strings for IDs and objective names; use constants.
 - Add defensive null checks on config-driven paths and log actionable warnings.
 
 ## Release Preparation

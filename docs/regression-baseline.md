@@ -1,4 +1,4 @@
-# Metro Runtime Baseline Checklist
+# Railway Runtime Baseline Checklist
 
 This checklist is used to validate behavior after refactors and hotfixes.
 
@@ -14,8 +14,8 @@ This checklist is used to validate behavior after refactors and hotfixes.
 
 - At least one line with 3+ stops configured.
 - Every stop has valid corners and a stop point.
-- `metro.use` is granted for test player.
-- `metro.tp` is granted for command/gui teleport checks.
+- `railway.use` is granted for test player.
+- `railway.tp` is granted for command/gui teleport checks.
 - Optional dependency checks use one enabled map provider at a time: BlueMap, Dynmap, or Squaremap.
 
 ## Test Map Scenarios
@@ -57,7 +57,7 @@ Build or keep a small regression world with these named scenarios. The IDs below
 ### Scenario F: Protected Route
 
 - Line: any recorded route with `rail_protected` enabled.
-- Purpose: verify protected rail break behavior for ordinary players, line admins, OP/admin users, and players currently riding a Metro minecart.
+- Purpose: verify protected rail break behavior for ordinary players, line admins, OP/admin users, and players currently riding a Railway minecart.
 
 ## Manual Regression Steps
 
@@ -67,12 +67,12 @@ Build or keep a small regression world with these named scenarios. The IDs below
 4. Verify station entry shows arrival info and station-arrival sound.
 5. Verify terminal stop ejects passenger and removes minecart.
 6. Verify exiting minecart mid-route clears title/actionbar/scoreboard.
-7. Verify `/m stop tp <stop_id>` works with `metro.tp` and fails without it.
+7. Verify `/rw stop tp <stop_id>` works with `railway.tp` and fails without it.
 8. Verify GUI teleport behavior matches command permission semantics.
-9. Verify `/m line delete <line_id>`, `/m stop delete <stop_id>`,
-   `/m portal delete <portal_id>`, and `/m line clearroute <line_id>` warn
+9. Verify `/rw line delete <line_id>`, `/rw stop delete <stop_id>`,
+   `/rw portal delete <portal_id>`, and `/rw line clearroute <line_id>` warn
    without `confirm` and only mutate when rerun with `confirm`.
-10. Run `/m reload`; verify new config defaults are present and plugin remains functional.
+10. Run `/rw reload`; verify new config defaults are present and plugin remains functional.
 
 ## Scenario Checks
 
@@ -83,7 +83,7 @@ Build or keep a small regression world with these named scenarios. The IDs below
 3. Choose `northbound`; verify the train departs toward `north`.
 4. Return to `center`, right-click again, and verify `northbound` is sorted first due to recent choice.
 5. Choose `southbound`; verify the train departs toward `south`.
-6. Remove `metro.use`, open the line choice GUI as an administrator, and verify
+6. Remove `railway.use`, open the line choice GUI as an administrator, and verify
    lines show a no-permission blocked state and clicking a line sends a localized
    denial message without boarding.
 
@@ -91,17 +91,17 @@ Build or keep a small regression world with these named scenarios. The IDs below
 
 1. Stand inside Scenario C `hub`.
 2. Verify the Title shows the stop name and the ActionBar lists multiple boardable lines without implying only one route.
-3. Open `/m gui`, inspect the line list and stop list, and verify duplicate or similar display names include IDs where needed.
+3. Open `/rw gui`, inspect the line list and stop list, and verify duplicate or similar display names include IDs where needed.
 4. With map integration enabled, verify the hub marker lists served lines and transfer information when `map_integration.show_transfer_info` is true.
-5. Set `map_integration.show_transfer_info` to false, run `/m reload`, refresh the map, and verify transfer details are hidden while the stop marker remains.
+5. Set `map_integration.show_transfer_info` to false, run `/rw reload`, refresh the map, and verify transfer details are hidden while the stop marker remains.
 
 ### Route Recording And Protection
 
-1. Run `/m line recordroute <line_id>`, ride the full line, and verify terminal auto-finish reports the saved route point count.
-2. Run `/m line routeinfo <line_id>` and verify it reports route points, protected rail count, skipped samples, recorded time, recorder, and cart ID.
-3. Run `/m line protect <line_id> on`, then try breaking protected rails as an ordinary player; verify the break is blocked.
-4. Try breaking the same rails as the line owner or a user with `metro.admin`; verify allowed behavior matches the configured permission model.
-5. Run `/m line clearroute <line_id>` through the confirmation GUI and verify route points and protection index are cleared.
+1. Run `/rw line recordroute <line_id>`, ride the full line, and verify terminal auto-finish reports the saved route point count.
+2. Run `/rw line routeinfo <line_id>` and verify it reports route points, protected rail count, skipped samples, recorded time, recorder, and cart ID.
+3. Run `/rw line protect <line_id> on`, then try breaking protected rails as an ordinary player; verify the break is blocked.
+4. Try breaking the same rails as the line owner or a user with `railway.admin`; verify allowed behavior matches the configured permission model.
+5. Run `/rw line clearroute <line_id>` through the confirmation GUI and verify route points and protection index are cleared.
 6. Open a line or stop settings GUI, revoke the player's ownership/admin rights,
    then click a mutating action. Verify the action is denied and no stale GUI
    action mutates line or stop data.
@@ -111,7 +111,7 @@ Build or keep a small regression world with these named scenarios. The IDs below
 1. Board at Scenario E `overworld_gate` and ride into the portal trigger.
 2. Verify teleport effects occur after `portals.teleport_delay`.
 3. Verify the same ride session continues after teleport and the scoreboard/Title target the downstream stop.
-4. Temporarily misconfigure the paired portal target, run `/m reload`, and verify the ride fails cleanly without leaving an active cart or stale scoreboard.
+4. Temporarily misconfigure the paired portal target, run `/rw reload`, and verify the ride fails cleanly without leaving an active cart or stale scoreboard.
 
 ### Map Provider Pass
 
@@ -122,7 +122,7 @@ Run one pass per provider that the test server has installed:
 3. Set a line color to a legacy color, such as `&a`, and verify the route renders with that color.
 4. Set a line color to a hex color, such as `&#55AAFF`, and verify the route renders with the hex color.
 5. Toggle `map_integration.show_stop_markers` and verify stop markers appear/disappear without affecting route lines.
-6. Change `map_integration.line_width`, run `/m reload`, trigger a map refresh through a line or stop edit, and verify rendered route width changes.
+6. Change `map_integration.line_width`, run `/rw reload`, trigger a map refresh through a line or stop edit, and verify rendered route width changes.
 
 ## Debug Log Categories
 

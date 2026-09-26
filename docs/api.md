@@ -1,29 +1,29 @@
-# Metro Developer API
+# Railway Developer API
 
 This document describes the public integration surface available through
 `org.cubexmc.metro.api.MetroAPI`.
 
-Metro exposes a compact API for reading network data, working with portals,
+Railway exposes a compact API for reading network data, working with portals,
 checking ownership and permissions, calculating fares, and checking boarding
 eligibility. Prefer `MetroAPI` over raw managers whenever possible.
 
 ## Dependency Setup
 
-Declare Metro as a plugin dependency:
+Declare Railway as a plugin dependency:
 
 ```yaml
 softdepend:
-  - Metro
+  - Railway
 ```
 
-Use `depend` if your plugin cannot run without Metro:
+Use `depend` if your plugin cannot run without Railway:
 
 ```yaml
 depend:
-  - Metro
+  - Railway
 ```
 
-Get the API after Metro has enabled:
+Get the API after Railway has enabled:
 
 ```java
 MetroAPI api = MetroAPI.getInstance();
@@ -46,9 +46,9 @@ if (api == null) {
 
 | Method | Description |
 | :-- | :-- |
-| `static MetroAPI getInstance()` | Returns the active API instance, or `null` before Metro initialization. |
+| `static MetroAPI getInstance()` | Returns the active API instance, or `null` before Railway initialization. |
 
-`MetroAPI.initialize(Metro plugin)` is called by Metro internally.
+`MetroAPI.initialize(Metro plugin)` is called by Railway internally (the main class keeps the name `Metro`).
 
 ## Read-only Settings
 
@@ -62,7 +62,7 @@ if (api == null) {
 | `long getCartDepartureDelay()` | Returns the station departure delay in ticks. |
 | `int getPortalTeleportDelay()` | Returns portal teleport delay in ticks. |
 | `boolean isPassengerRailBreakProtectionEnabled()` | Returns the safe-mode passenger rail break protection toggle. |
-| `boolean isFoliaRuntime()` | Returns true when Metro detected Folia. |
+| `boolean isFoliaRuntime()` | Returns true when Railway detected Folia. |
 
 ## Lines
 
@@ -141,9 +141,9 @@ portal id, owner, and admins.
 
 | Method | Description |
 | :-- | :-- |
-| `boolean canManageLine(CommandSender sender, String lineId)` | Mirrors Metro line management ownership rules. |
-| `boolean canManageStop(CommandSender sender, String stopId)` | Mirrors Metro stop management ownership rules. |
-| `boolean canManagePortal(CommandSender sender, String portalId)` | Mirrors Metro portal management ownership rules. |
+| `boolean canManageLine(CommandSender sender, String lineId)` | Mirrors Railway line management ownership rules. |
+| `boolean canManageStop(CommandSender sender, String stopId)` | Mirrors Railway stop management ownership rules. |
+| `boolean canManagePortal(CommandSender sender, String portalId)` | Mirrors Railway portal management ownership rules. |
 | `boolean canModifyLineStops(CommandSender sender, String lineId, String stopId)` | Checks whether a sender may modify a line-stop relationship. |
 | `boolean canLinkStopToLine(CommandSender sender, String lineId, String stopId)` | Checks whether a sender may link a stop to a line. |
 
@@ -178,7 +178,7 @@ portal id, owner, and admins.
 | Method | Description |
 | :-- | :-- |
 | `LineStatus getLineStatus(String lineId)` | Returns the line status, or `NORMAL` when missing. |
-| `boolean setLineStatus(String lineId, LineStatus status)` | Updates status through Metro's status service. |
+| `boolean setLineStatus(String lineId, LineStatus status)` | Updates status through Railway's status service. |
 | `boolean isLineSuspended(String lineId)` | Returns true when status is `SUSPENDED`. |
 | `boolean isLineMaintenance(String lineId)` | Returns true when status is `MAINTENANCE`. |
 | `void setSuspensionMessage(String lineId, String message)` | Sets the suspension message and saves lines data. |
@@ -198,7 +198,7 @@ portal id, owner, and admins.
 | `PriceRule getPriceRule(String lineId)` | Returns the live line pricing rule, or `null`. |
 | `void setPriceRule(String lineId, PriceRule rule)` | Sets the line pricing rule and saves lines data. |
 | `double calculatePrice(String lineId, String entryStopId, String exitStopId, double distanceBlocks, int intervals)` | Calculates a fare for ride data. |
-| `double getEstimatedPrice(String lineId)` | Returns Metro's estimated display fare. |
+| `double getEstimatedPrice(String lineId)` | Returns Railway's estimated display fare. |
 | `String getPriceDescription(String lineId)` | Returns a human-readable pricing description. |
 
 `PriceRuleSnapshot` is used in `LineSnapshot` to avoid exposing the live
@@ -210,7 +210,7 @@ portal id, owner, and admins.
 | :-- | :-- |
 | `TicketService.TicketCheck checkCanBoard(Player player, String lineId)` | Checks whether a player can board a line and returns the price/check status. |
 
-For missing lines, Metro returns an insufficient-funds check with price `0`.
+For missing lines, Railway returns an insufficient-funds check with price `0`.
 
 ## Advanced Access
 
